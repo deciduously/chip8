@@ -75,7 +75,7 @@ impl Machine {
         // Consume two successive bytes, then combine for the opcode
         let first_byte = self.memory[self.pc];
         let second_byte = self.memory[self.pc + 1];
-        Opcode::from_adjacent(first_byte, second_byte)
+        Opcode::new(first_byte, second_byte)
     }
 }
 
