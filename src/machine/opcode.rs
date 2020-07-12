@@ -19,7 +19,7 @@ pub enum Opcode {
     /// 3XNN - skip next instruction if VX == NN.  Carries (X, NN).
     SkipIfEqVal(u8, u8),
     /// 4XNN - Skip next if VX != NN.  Carries (X, NN).
-    SkipIfNEqVal(u8, u8),
+    SkipIfNotEqVal(u8, u8),
     /// 5XY0 - Skip next if VX == VY.  Carries (X, Y).
     SkipIfMatchReg(u8, u8),
     /// 6XNN - Set CV to NN.  Carries (X, NN).
@@ -139,7 +139,15 @@ mod test {
         assert_eq!(Opcode::combine_bytes(byte_one, byte_two), 0xA2F0)
     }
     #[test]
-    fn test_opcode_from_u16() {
-        assert_eq!(Opcode::from(0x2F23), Opcode::Call(0xF23));
+    fn test_new_opcode() {
+        assert_eq!(Opcode::new(0x0F, 0xFF), Opcode::MachineCall(0xFFF));
+        assert_eq!(Opcode::new(0x00, 0xE0), Opcode::Clear);
+        assert_eq!(Opcode::new(0x1F, 0xFF), Opcode::Jump(0xFFF));
+        assert_eq!(Opcode::new(0x2F, 0xFF), Opcode::Call(0xFFF));
+        assert_eq!(Opcode::new(0x32, 0xFF), Opcode::SkipIfEqVal(2, 0xFF));
+        assert_eq!(Opcode::new(0x42, 0xFF), Opcode::SkipIfNotEqVal(2, 0xFF));
+        assert_eq!(Opcode::new(0x52, 0x30), Opcode::SkipIfMatchReg(2, 3));
+        assert_eq!(Opcode::new(0x52, 0x31), Opcode::Unrecognized(0x5231));
+        // TODO...
     }
 }
