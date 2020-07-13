@@ -1,6 +1,6 @@
 //! The top-level software representation of the Chip8 virtual machine
 
-use super::{*, opcode::*};
+use super::{opcode::*, *};
 use anyhow::Result;
 
 /// The top-level software representation of the Chip8 machine
@@ -62,11 +62,11 @@ impl Machine {
     }
 
     /// Fetch the opcode specified by the program counter
-    fn fetch_opcode(&self) -> Opcode {
+    fn fetch_opcode(&self) -> Result<Opcode> {
         // Consume two successive bytes, then combine for the opcode
         let first_byte = self.memory[self.pc];
         let second_byte = self.memory[self.pc + 1];
-        Opcode::new(first_byte, second_byte)
+        Ok(Opcode::new(first_byte, second_byte)?)
     }
 }
 
@@ -85,15 +85,5 @@ impl Default for Machine {
             sp: 0,
             key: [0; NUM_KEYS],
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use pretty_assertions::assert_eq;
-    #[test]
-    fn test_fetch_opcode() {
-        // todo!
     }
 }
