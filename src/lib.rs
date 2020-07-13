@@ -1,7 +1,7 @@
 //! A Chip8 VM as a library
 
-mod machine;
-pub use machine::Machine;
+pub mod machine;
+pub use machine::machine::Machine;
 
 #[cfg(test)]
 mod test {

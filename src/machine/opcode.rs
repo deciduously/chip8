@@ -2,6 +2,91 @@
 //!
 //! Largely written by staring at [the Chip8 Wikipedia article](https://en.wikipedia.org/wiki/CHIP-8#Opcode_table) for a while.
 
+/// Wrapper struct with some helper methods for working with u16 values
+#[derive(Debug, Clone, Copy)]
+pub struct RawOpcode(u16);
+
+impl From<u16> for RawOpcode {
+    fn from(x: u16) -> Self {
+        Self(x)
+    }
+}
+
+impl From<RawOpcode> for u16 {
+    fn from(raw: RawOpcode) -> Self {
+        raw.0
+    }
+}
+
+impl RawOpcode {
+    /// Use bitwise OR to combine two u8s into a u16.
+    fn combine_bytes(byte_one: u8, byte_two: u8) -> u16 {
+        (byte_one as u16) << 8 | byte_two as u16
+    }
+
+    /// Get a hex digit from a 16 bit value from the most significant.
+    /// ```
+    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use pretty_assertions::assert_eq;
+    /// # fn main() {
+    ///    let code = RawOpcode::from(0xABCD);
+    ///    assert_eq!(code.hex_digit(0), 0xA);
+    ///    assert_eq!(code.hex_digit(1), 0xB);
+    ///    assert_eq!(code.hex_digit(2), 0xC);
+    ///    assert_eq!(code.hex_digit(3), 0xD);
+    /// # }
+    /// ```
+    pub fn hex_digit(&self, from_most: u8) -> u8 {
+        // Shift over by proper amount of bytes, and then zero out the bits to the left with &
+        // This will make any bit that isn't flipped a 0.
+        // The result will fit in a u8
+        if from_most > 3 {
+            panic!(
+                "cannot get the {}th hex digit from 4-digit number {:#0x}",
+                from_most, self.0
+            );
+        };
+        let bits = 4 * (3 - from_most);
+        ((self.0 >> bits) & 0xF) as u8
+    }
+
+    /// Get the second and third digits.
+    /// ```
+    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use pretty_assertions::assert_eq;
+    /// # fn main() {
+    ///    assert_eq!(RawOpcode::from(0xABCD).middle_digits(), (0xB, 0xC));
+    /// # }
+    /// ```
+    pub fn middle_digits(&self) -> (u8, u8) {
+        (self.hex_digit(1), self.hex_digit(2))
+    }
+
+    /// Get the least significant byte form a 16 bit value.
+    /// ```
+    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use pretty_assertions::assert_eq;
+    /// # fn main() {
+    ///    assert_eq!(RawOpcode::from(0xABCD).last_byte(), 0xCD);
+    /// # }
+    /// ```
+    pub fn last_byte(&self) -> u8 {
+        (self.0 & 0x00FF) as u8
+    }
+
+    /// Get all but the first digit.
+    /// ```
+    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use pretty_assertions::assert_eq;
+    /// # fn main() {
+    ///    assert_eq!(RawOpcode::from(0xABCD).last_three_digits(), 0xBCD);
+    /// # }
+    /// ```
+    pub fn last_three_digits(&self) -> u16 {
+        self.0 & 0x0FFF
+    }
+}
+
 /// All the supported types of opcode.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Opcode {
@@ -9,7 +94,7 @@ pub enum Opcode {
     /// Carries NNN.
     MachineCall(u16),
     /// 00E0 - Clear the screen.
-    Clear,
+    ClearScreen,
     /// 00EE - Return from a subroutine.
     Return,
     /// 1NNN - Jump to addr NNN.
@@ -22,7 +107,7 @@ pub enum Opcode {
     SkipIfNotEqVal(u8, u8),
     /// 5XY0 - Skip next if VX == VY.  Carries (X, Y).
     SkipIfMatchReg(u8, u8),
-    /// 6XNN - Set CV to NN.  Carries (X, NN).
+    /// 6XNN - Set VX to NN.  Carries (X, NN).
     SetRegister(u8, u8),
     /// 7XNN - Add NN to VX, does not change carry flag.  Carries (X, NN).
     Add(u8, u8),
@@ -76,12 +161,7 @@ pub enum Opcode {
     /// Carries X.
     NewSprite(u8),
     /// FX33 - Store the binary-coded decimal representation of VX starting at the index pointer.
-    /// ```rust
-    /// let (hundreds_digit, tens_digit, ones_digit) = binary_coded_decimal(registers[x]);
-    /// tape[idx+0] = hundreds_digit;
-    /// tape[idx+1] = tens_digit;
-    /// tape[idx+2] = ones_digit;
-    /// ```
+    /// Hundreds digit at `tape[idx]`, tens to `tape[idx+1]`, ones to `tape[idx+2]`.
     /// Carries X.
     BCD(u8),
     /// FX55 - Store V0 to VX inclusive in memory starting at idx.  Leave idx itself unmodified.  Carries X.
@@ -96,20 +176,7 @@ impl Opcode {
     /// Produce a single Opcode from two adjacent u8 values.
     /// e.g. 0x20 and 0xFF should combine to 0x20FF and return Opcode::Call()
     pub fn new(first: u8, second: u8) -> Self {
-        Self::from(Self::combine_bytes(first, second))
-    }
-    /// Use bitwise OR to combine two u8s into a u16.
-    /// Taken from [this post](http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/).
-    /// ```
-    /// 0xA2       0xA2 << 8 = 0xA200   HEX
-    /// 10100010   1010001000000000     BIN
-    /// 1010001000000000 | // 0xA200
-    /// 11110000 = // 0xF0 (0x00F0)
-    /// ------------------
-    /// 1010001011110000   // 0xA2F0
-    /// ```
-    fn combine_bytes(byte_one: u8, byte_two: u8) -> u16 {
-        (byte_one as u16) << 8 | byte_two as u16
+        Self::from(RawOpcode::combine_bytes(first, second))
     }
 }
 
@@ -120,11 +187,50 @@ impl Default for Opcode {
 }
 
 impl From<u16> for Opcode {
-    fn from(raw: u16) -> Self {
-        // This is the opcode lookup logic
-        unimplemented!()
-        // First, look at the first
-        // let prefix = raw & 0xF000
+    fn from(x: u16) -> Self {
+        Self::from(RawOpcode::from(x))
+    }
+}
+
+impl From<RawOpcode> for Opcode {
+    fn from(raw: RawOpcode) -> Self {
+        use Opcode::*;
+
+        let prefix = raw.hex_digit(0);
+        println!("raw: {:?}, prefix: {}", raw, prefix);
+
+        match prefix {
+            0 => {
+                let addr = raw.last_three_digits();
+                match addr {
+                    0x0E0 => ClearScreen,
+                    0x0EE => Return,
+                    _ => MachineCall(addr),
+                }
+            }
+            1 => Jump(raw.last_three_digits()),
+            2 => Call(raw.last_three_digits()),
+            3 => SkipIfEqVal(raw.hex_digit(1), raw.last_byte()),
+            4 => SkipIfNotEqVal(raw.hex_digit(1), raw.last_byte()),
+            5 => {
+                if raw.hex_digit(3) != 0 {
+                    return Unrecognized(raw.into());
+                }
+                let (x, y) = raw.middle_digits();
+                SkipIfMatchReg(x, y)
+            }
+            6 => SetRegister(raw.hex_digit(1), raw.last_byte()),
+            7 => unimplemented!(),
+            8 => unimplemented!(),
+            9 => unimplemented!(),
+            0xA => unimplemented!(),
+            0xB => unimplemented!(),
+            0xC => unimplemented!(),
+            0xD => unimplemented!(),
+            0xE => unimplemented!(),
+            0xF => unimplemented!(),
+            _ => Self::Unrecognized(raw.into()),
+        }
     }
 }
 
@@ -133,21 +239,21 @@ mod test {
     use super::*;
     use pretty_assertions::assert_eq;
     #[test]
-    fn test_combine_opcodes() {
-        let byte_one = 0xA2;
-        let byte_two = 0xF0;
-        assert_eq!(Opcode::combine_bytes(byte_one, byte_two), 0xA2F0)
+    fn test_combine_bytes() {
+        assert_eq!(RawOpcode::combine_bytes(0xA2, 0xF0), 0xA2F0)
     }
     #[test]
     fn test_new_opcode() {
-        assert_eq!(Opcode::new(0x0F, 0xFF), Opcode::MachineCall(0xFFF));
-        assert_eq!(Opcode::new(0x00, 0xE0), Opcode::Clear);
+        assert_eq!(Opcode::new(0x0A, 0xBC), Opcode::MachineCall(0xABC));
+        assert_eq!(Opcode::new(0x00, 0xE0), Opcode::ClearScreen);
+        assert_eq!(Opcode::new(0x00, 0xEE), Opcode::Return);
         assert_eq!(Opcode::new(0x1F, 0xFF), Opcode::Jump(0xFFF));
         assert_eq!(Opcode::new(0x2F, 0xFF), Opcode::Call(0xFFF));
         assert_eq!(Opcode::new(0x32, 0xFF), Opcode::SkipIfEqVal(2, 0xFF));
         assert_eq!(Opcode::new(0x42, 0xFF), Opcode::SkipIfNotEqVal(2, 0xFF));
         assert_eq!(Opcode::new(0x52, 0x30), Opcode::SkipIfMatchReg(2, 3));
         assert_eq!(Opcode::new(0x52, 0x31), Opcode::Unrecognized(0x5231));
+        assert_eq!(Opcode::new(0x62, 0xBC), Opcode::SetRegister(2, 0xBC));
         // TODO...
     }
 }
