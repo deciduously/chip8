@@ -1,3 +1,4 @@
+use anyhow::Result;
 use chip8::Machine;
 
 fn init_renderer() {
@@ -13,12 +14,13 @@ fn init() {
     init_input();
 }
 
-fn main() {
+fn main() -> Result<()> {
     init();
 
     let mut machine = Machine::new();
-    machine.load_game("pong");
+    machine.load_game("pong")?;
     if let Err(e) = machine.run() {
         eprintln!("Error: {}", e);
     }
+    Ok(())
 }

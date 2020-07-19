@@ -13,8 +13,8 @@ categories = ["emulators", "games"]
 [dependencies]
 
 anyhow = "1.0"
-bytes = "0.5"
 hex = "0.4"
+lazy_static = "1.4"
 
 [dev-dependencies]
 
