@@ -158,7 +158,10 @@ impl Machine {
             SkipIfEqVal(x, y) => {}
             SkipIfNotEqVal(x, y) => {}
             SkipIfMatchReg(x, y) => {}
-            SetRegister(x, y) => {}
+            SetRegister(x, y) => {
+                self.register_set(x, y);
+                self.next_opcode()
+            }
             Add(x, y) => {}
             Assign(x, y) => {}
             AssignOr(x, y) => {}
@@ -381,6 +384,21 @@ mod test {
         assert_eq!(machine.pc, 0xBCD);
     }
     #[test]
+    fn test_opcode_6xnn_set_register() {
+        let mut machine = Machine::new();
+        // Seed registers
+        machine.registers[0xB] = 3;
+        machine
+            .update_opcode(Some(Opcode::try_from(0x6BCD).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+
+        // Should set register to given value
+        assert_eq!(machine.register_get(0xB), 0xCD);
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
     fn test_opcode_annn_set_idx() {
         let mut machine = Machine::new();
         machine
@@ -441,6 +459,7 @@ mod test {
             .update_opcode(Some(Opcode::try_from(0xFB33).unwrap()))
             .unwrap();
         machine.execute_opcode();
+        // Should store the BCD of V[X] to the right memory locations
         assert_eq!(machine.memory[0xAB], 1);
         assert_eq!(machine.memory[0xAB + 1], 9);
         assert_eq!(machine.memory[0xAB + 2], 5);
