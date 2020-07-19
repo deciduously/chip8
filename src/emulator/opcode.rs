@@ -12,7 +12,7 @@ pub struct RawOpcode(u16);
 impl RawOpcode {
     /// Construct a new opcode from two bytes.
     /// ```
-    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
     /// assert_eq!(u16::from(RawOpcode::new(0xAB, 0xCD)), 0xABCD);
     /// ```
@@ -22,7 +22,7 @@ impl RawOpcode {
 
     /// Use bitwise OR to combine two u8s into a u16.
     /// ```
-    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
     /// assert_eq!(RawOpcode::combine_bytes(0xA2, 0xF0), 0xA2F0);
     /// ```
@@ -32,7 +32,7 @@ impl RawOpcode {
 
     /// Get a hex digit from a 16 bit value from the most significant.
     /// ```
-    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
     /// let code = RawOpcode::from(0xABCD);
     /// assert_eq!(code.hex_digit_from_left(0), 0xA);
@@ -57,7 +57,7 @@ impl RawOpcode {
 
     /// Get the second and third digits.
     /// ```
-    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
     /// assert_eq!(RawOpcode::from(0xABCD).middle_bytes(), (0xB, 0xC));
     /// ```
@@ -67,7 +67,7 @@ impl RawOpcode {
 
     /// Get the least significant byte form a 16 bit value.
     /// ```
-    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
     /// assert_eq!(RawOpcode::from(0xABCD).last_byte(), 0xCD);
     /// ```
@@ -77,7 +77,7 @@ impl RawOpcode {
 
     /// Get all but the first digit.
     /// ```
-    /// # use chip8::machine::opcode::RawOpcode;
+    /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
     /// assert_eq!(RawOpcode::from(0xABCD).last_three_bytes(), 0xBCD);
     /// ```
@@ -190,7 +190,7 @@ pub enum Opcode {
 impl Opcode {
     /// Produce a single Opcode from two adjacent u8 (byte) values.
     /// ```
-    /// # use chip8::machine::opcode::*;
+    /// # use chip8::emulator::opcode::*;
     /// # use pretty_assertions::assert_eq;
     /// assert_eq!(Opcode::new(0x0A, 0xBC).unwrap(), Opcode::MachineCall(0xABC));
     /// assert_eq!(Opcode::new(0x00, 0xE0).unwrap(), Opcode::ClearScreen);
@@ -230,7 +230,7 @@ impl Opcode {
     /// ```
     /// Will pass up the raw opcode in an error if it doesn't match the table.
     /// ```should_panic
-    /// # use chip8::machine::opcode::*;
+    /// # use chip8::emulator::opcode::*;
     /// # use pretty_assertions::assert_eq;
     /// assert_eq!(Opcode::new(0x8B, 0xCF).err().unwrap().to_string(), "Invalid Code: 0x8BCF".to_string());
     /// ```

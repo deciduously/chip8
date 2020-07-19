@@ -20,4 +20,4 @@ const STACK_SIZE: usize = 16;
 /// Helper const for the total number of screen pixels.
 const TOTAL_PIXELS: usize = PIXEL_COLS * PIXEL_ROWS;
 /// Starting memory location for the program to run - earlier cells are machine-reserved.
-const PC_BEGIN: usize = 0x200;
+const PC_BEGIN: u16 = 0x200;

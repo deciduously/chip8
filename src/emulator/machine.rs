@@ -55,7 +55,7 @@ pub struct Machine {
     /// Index register
     idx: u16,
     /// Program counter
-    pc: usize,
+    pc: u16,
     /// Graphics system - 2048 total pixels, arranged 64x32
     screen: [u8; TOTAL_PIXELS],
     /// Delay timer - 60Hz, counts down if above 0
@@ -83,7 +83,7 @@ impl Machine {
 
     /// Retrieve the current byte.
     fn current_byte(&self) -> u8 {
-        self.memory[self.pc]
+        self.memory_get(self.pc)
     }
 
     /// Locate a program file by filename and load into memory.
@@ -103,7 +103,7 @@ impl Machine {
 
         // Load in memory starting at location 512 (0x200), which is where the pc pointer starts
         for (idx, &byte) in buf.iter().enumerate() {
-            self.memory[idx + self.pc] = byte;
+            self.memory_set(idx as u16 + self.pc, byte);
         }
 
         println!("Loaded {} bytes from {}", bytes_read, name);
@@ -114,6 +114,7 @@ impl Machine {
     pub fn run(&mut self) -> Result<()> {
         loop {
             // Emulate one cycle
+            self.cycle()?;
             // If the draw flag is set, update the screen
             // Store key press state
         }
@@ -121,6 +122,20 @@ impl Machine {
     }
 
     // PRIVATE
+
+    /// Set the carry flag to off
+    fn carry_off(&mut self) {
+        self.registers[0xF] = 0;
+    }
+
+    /// Set the carry flag to on
+    fn carry_on(&mut self) {
+        self.registers[0xF] = 1;
+    }
+    /// Get the current value of the carry flag
+    fn carry_flag_set(&mut self) -> bool {
+        self.registers[0xF] == 1
+    }
 
     /// Emulate a single cycle of the Chip8 CPU.
     fn cycle(&mut self) -> Result<()> {
@@ -149,7 +164,7 @@ impl Machine {
             AssignOr(x, y) => {}
             AssignAnd(x, y) => {}
             AssignXor(x, y) => {}
-            AddAssign(x, y) => {}
+            AddAssign(x, y) => self.add_assign(x, y),
             SubAssign(x, y) => {}
             ShiftRight(x) => {}
             FlippedSubAssign(x, y) => {}
@@ -167,7 +182,7 @@ impl Machine {
             SetSound(x) => {}
             IncrementIdx(x) => {}
             NewSprite(x) => {}
-            BCD(x) => {}
+            BCD(x) => self.binary_coded_decimal(x),
             DumpRegisters(x) => {}
             FillRegisters(x) => {}
         }
@@ -177,7 +192,7 @@ impl Machine {
     fn fetch_opcode(&self) -> Result<Opcode> {
         // Consume two successive bytes, then combine for the opcode
         let first_byte = self.current_byte();
-        let second_byte = self.memory[self.pc + 1];
+        let second_byte = self.memory_get(self.pc + 1);
         Ok(Opcode::new(first_byte, second_byte)?)
     }
 
@@ -189,10 +204,35 @@ impl Machine {
         }
     }
 
+    /// Get the byte at memory address x
+    fn memory_get(&self, addr: u16) -> u8 {
+        self.memory[addr as usize]
+    }
+
+    /// Set the value at register x
+    fn memory_set(&mut self, addr: u16, val: u8) {
+        self.memory[addr as usize] = val;
+    }
+
+    /// Advance a single opcode
+    fn next_opcode(&mut self) {
+        self.pc += 2;
+    }
+
     /// Push the current location onto the stack
     fn push_callsite(&mut self) {
-        self.stack[self.sp] = self.pc;
+        self.stack[self.sp] = self.pc as usize;
         self.sp += 1;
+    }
+
+    /// Get the value at register x
+    fn register_get(&self, x: u8) -> u8 {
+        self.registers[x as usize]
+    }
+
+    /// Set the value at register x
+    fn register_set(&mut self, x: u8, val: u8) {
+        self.registers[x as usize] = val;
     }
 
     /// Reset memory, registers, call stack for a new rom.
@@ -233,15 +273,42 @@ impl Machine {
         // Store current location on the stack
         self.push_callsite();
         // Jump to new location
-        self.pc = addr as usize;
+        self.pc = addr;
     }
 
     /// Set index pointer to addr.
     fn set_idx(&mut self, addr: u16) {
         // Store index
         self.idx = addr;
-        // Advance to next opcode location
-        self.pc += 2;
+        self.next_opcode();
+    }
+
+    /// Add the contents of VY to VX, setting the carry flag if it wraps over a u8
+    fn add_assign(&mut self, x: u8, y: u8) {
+        let reg_x = self.register_get(x);
+        let reg_y = self.register_get(y);
+
+        // Check if the addition will overflow a byte, set carry flag and VX accordingly
+        let headroom = 0xFF - reg_x;
+        if reg_y > headroom {
+            self.carry_on();
+            self.register_set(x, reg_y - headroom);
+        } else {
+            self.carry_off();
+            self.register_set(x, reg_x + reg_y);
+        }
+        self.next_opcode();
+    }
+
+    /// Store the binary coded decimal representation of the value at VX to memory at idx, idx + 1, and idx + 2.
+    ///
+    /// Shamelessly stolen from the Opcode Examples section of [this post](http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/), Example 3.
+    fn binary_coded_decimal(&mut self, x: u8) {
+        let reg_x = self.register_get(x);
+        self.memory_set(self.idx, reg_x / 100);
+        self.memory_set(self.idx + 1, (reg_x / 10) % 10);
+        self.memory_set(self.idx + 2, (reg_x % 100) % 10);
+        self.next_opcode();
     }
 }
 
@@ -254,8 +321,8 @@ impl Default for Machine {
             idx: 0,
             pc: PC_BEGIN,
             screen: [0; TOTAL_PIXELS],
-            delay_timer: 255,
-            sound_timer: 255,
+            delay_timer: 0xFF,
+            sound_timer: 0xFF,
             stack: [0; STACK_SIZE],
             sp: 0,
             key: [0; NUM_KEYS],
@@ -272,8 +339,8 @@ mod test {
     fn test_load_fonts() {
         let machine = Machine::new();
         // The constructor should properly load the full fontset
-        assert_eq!(machine.memory[0], 0xF0);
-        assert_eq!(machine.memory[79], 0x80);
+        assert_eq!(machine.memory_get(0), 0xF0);
+        assert_eq!(machine.memory_get(79), 0x80);
     }
     #[test]
     fn test_load_game() {
@@ -307,7 +374,7 @@ mod test {
             .unwrap();
         machine.execute_opcode();
         // Should store the current location in the stack to jump back later
-        assert_eq!(machine.stack[0] as usize, PC_BEGIN);
+        assert_eq!(machine.stack[0], PC_BEGIN as usize);
         // Should increment stack pointer
         assert_eq!(machine.sp, 1);
         // Should set program counter to new location
@@ -324,5 +391,58 @@ mod test {
         assert_eq!(machine.idx, 0xBCD);
         // Should increment program counter by two
         assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_8xy4_add_assign() {
+        let mut machine = Machine::new();
+        // Seed registers
+        machine.registers[0xB] = 3;
+        machine.registers[0xC] = 15;
+        machine
+            .update_opcode(Some(Opcode::try_from(0x8BC4).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+
+        // Should add VY to VX, wrapping around 0xFF
+        assert_eq!(machine.register_get(0xB), 18);
+        // Should not affect VY
+        assert_eq!(machine.register_get(0xC), 15);
+        // Should not set carry flag
+        assert!(!machine.carry_flag_set());
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_8xy4_add_assign_with_carry() {
+        let mut machine = Machine::new();
+        // Seed registers - each is only one byte, so this will wrap over
+        machine.registers[0xB] = 250;
+        machine.registers[0xC] = 15;
+        machine
+            .update_opcode(Some(Opcode::try_from(0x8BC4).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+
+        // Should add VY to VX, wrapping around 0xFF
+        assert_eq!(machine.register_get(0xB), 10);
+        // Should not affect VY
+        assert_eq!(machine.register_get(0xC), 15);
+        // Should set carry flag
+        assert!(machine.carry_flag_set());
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_fx33_bcd() {
+        let mut machine = Machine::new();
+        machine.registers[0xB] = 195;
+        machine.idx = 0xAB;
+        machine
+            .update_opcode(Some(Opcode::try_from(0xFB33).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+        assert_eq!(machine.memory[0xAB], 1);
+        assert_eq!(machine.memory[0xAB + 1], 9);
+        assert_eq!(machine.memory[0xAB + 2], 5);
     }
 }
