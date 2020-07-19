@@ -158,15 +158,12 @@ impl Machine {
             SkipIfEqVal(x, y) => {}
             SkipIfNotEqVal(x, y) => {}
             SkipIfMatchReg(x, y) => {}
-            SetRegister(x, y) => {
-                self.register_set(x, y);
-                self.next_opcode()
-            }
-            Add(x, y) => {}
-            Assign(x, y) => {}
-            AssignOr(x, y) => {}
-            AssignAnd(x, y) => {}
-            AssignXor(x, y) => {}
+            SetRegister(x, y) => self.set_register(x, y),
+            Add(x, y) => self.add(x, y),
+            Assign(x, y) => self.assign(x, y),
+            AssignOr(x, y) => self.assign_or(x, y),
+            AssignAnd(x, y) => self.assign_and(x, y),
+            AssignXor(x, y) => self.assign_xor(x, y),
             AddAssign(x, y) => self.add_assign(x, y),
             SubAssign(x, y) => {}
             ShiftRight(x) => {}
@@ -271,6 +268,36 @@ impl Machine {
 
     // OPCODE FNS
 
+    /// Add y to value at register X
+    fn add(&mut self, x: u8, y: u8) {
+        self.register_set(x, self.register_get(x) + y);
+        self.next_opcode();
+    }
+
+    /// Assign VX to VY
+    fn assign(&mut self, x: u8, y: u8) {
+        self.register_set(x, self.register_get(y));
+        self.next_opcode();
+    }
+
+    /// Assign VX to (VX & VY)
+    fn assign_and(&mut self, x: u8, y: u8) {
+        self.register_set(x, self.register_get(y) & self.register_get(x));
+        self.next_opcode();
+    }
+
+    /// Assign VX to (VX | VY)
+    fn assign_or(&mut self, x: u8, y: u8) {
+        self.register_set(x, self.register_get(y) | self.register_get(x));
+        self.next_opcode();
+    }
+
+    /// Assign VX to (VX ^ VY)
+    fn assign_xor(&mut self, x: u8, y: u8) {
+        self.register_set(x, self.register_get(y) ^ self.register_get(x));
+        self.next_opcode();
+    }
+
     /// Call subroutine at addr
     fn call(&mut self, addr: u16) {
         // Store current location on the stack
@@ -281,9 +308,14 @@ impl Machine {
 
     /// Set index pointer to addr.
     fn set_idx(&mut self, addr: u16) {
-        // Store index
         self.idx = addr;
         self.next_opcode();
+    }
+
+    /// Set register to value
+    fn set_register(&mut self, x: u8, y: u8) {
+        self.register_set(x, y);
+        self.next_opcode()
     }
 
     /// Add the contents of VY to VX, setting the carry flag if it wraps over a u8
@@ -399,14 +431,89 @@ mod test {
         assert_eq!(machine.pc, PC_BEGIN + 2);
     }
     #[test]
-    fn test_opcode_annn_set_idx() {
+    fn test_opcode_7xnn_add() {
         let mut machine = Machine::new();
+        // Seed registers
+        machine.registers[0xB] = 3;
         machine
-            .update_opcode(Some(Opcode::try_from(0xABCD).unwrap()))
+            .update_opcode(Some(Opcode::try_from(0x7BCD).unwrap()))
             .unwrap();
         machine.execute_opcode();
-        // Should store index given
-        assert_eq!(machine.idx, 0xBCD);
+
+        // Should add NN to reg_x
+        assert_eq!(machine.register_get(0xB), 3 + 0xCD);
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_8xy0_assign() {
+        let mut machine = Machine::new();
+        // Seed registers
+        machine.registers[0xB] = 3;
+        machine.registers[0xC] = 15;
+        machine
+            .update_opcode(Some(Opcode::try_from(0x8BC0).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+
+        // Should assign VY to VX
+        assert_eq!(machine.register_get(0xB), 15);
+        // Should not affect VY
+        assert_eq!(machine.register_get(0xC), 15);
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_8xy1_assign_or() {
+        let mut machine = Machine::new();
+        // Seed registers
+        machine.registers[0xB] = 0xA;
+        machine.registers[0xC] = 4;
+        machine
+            .update_opcode(Some(Opcode::try_from(0x8BC1).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+
+        // Should assign VY to (VX | VY)
+        assert_eq!(machine.register_get(0xB), 14);
+        // Should not affect VY
+        assert_eq!(machine.register_get(0xC), 4);
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_8xy2_assign_and() {
+        let mut machine = Machine::new();
+        // Seed registers
+        machine.registers[0xB] = 0xA;
+        machine.registers[0xC] = 0xC;
+        machine
+            .update_opcode(Some(Opcode::try_from(0x8BC2).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+
+        // Should assign VY to (VX & VY)
+        assert_eq!(machine.register_get(0xB), 8);
+        // Should not affect VY
+        assert_eq!(machine.register_get(0xC), 0xC);
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_8xy3_assign_xor() {
+        let mut machine = Machine::new();
+        // Seed registers
+        machine.registers[0xB] = 0xA;
+        machine.registers[0xC] = 0xC;
+        machine
+            .update_opcode(Some(Opcode::try_from(0x8BC3).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+
+        // Should assign VY to (VX ^ VY)
+        assert_eq!(machine.register_get(0xB), 6);
+        // Should not affect VY
+        assert_eq!(machine.register_get(0xC), 0xC);
         // Should increment program counter by two
         assert_eq!(machine.pc, PC_BEGIN + 2);
     }
@@ -447,6 +554,18 @@ mod test {
         assert_eq!(machine.register_get(0xC), 15);
         // Should set carry flag
         assert!(machine.carry_flag_set());
+        // Should increment program counter by two
+        assert_eq!(machine.pc, PC_BEGIN + 2);
+    }
+    #[test]
+    fn test_opcode_annn_set_idx() {
+        let mut machine = Machine::new();
+        machine
+            .update_opcode(Some(Opcode::try_from(0xABCD).unwrap()))
+            .unwrap();
+        machine.execute_opcode();
+        // Should store index given
+        assert_eq!(machine.idx, 0xBCD);
         // Should increment program counter by two
         assert_eq!(machine.pc, PC_BEGIN + 2);
     }
