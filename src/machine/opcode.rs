@@ -35,13 +35,13 @@ impl RawOpcode {
     /// # use chip8::machine::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
     /// let code = RawOpcode::from(0xABCD);
-    /// assert_eq!(code.byte_from_left(0), 0xA);
-    /// assert_eq!(code.byte_from_left(1), 0xB);
-    /// assert_eq!(code.byte_from_left(2), 0xC);
-    /// assert_eq!(code.byte_from_left(3), 0xD);
+    /// assert_eq!(code.hex_digit_from_left(0), 0xA);
+    /// assert_eq!(code.hex_digit_from_left(1), 0xB);
+    /// assert_eq!(code.hex_digit_from_left(2), 0xC);
+    /// assert_eq!(code.hex_digit_from_left(3), 0xD);
     /// ```
     /// Panics if passed anything higher than 3 "cannot get the 4th hex digit from 4-digit number 0xABCD"
-    pub fn byte_from_left(&self, from_most: u8) -> u8 {
+    pub fn hex_digit_from_left(&self, from_most: u8) -> u8 {
         // Shift over by proper amount of bytes, and then zero out the bits to the left with &
         // This will make any bit that isn't flipped a 0.
         // The result will fit in a u8
@@ -62,7 +62,7 @@ impl RawOpcode {
     /// assert_eq!(RawOpcode::from(0xABCD).middle_bytes(), (0xB, 0xC));
     /// ```
     pub fn middle_bytes(&self) -> (u8, u8) {
-        (self.byte_from_left(1), self.byte_from_left(2))
+        (self.hex_digit_from_left(1), self.hex_digit_from_left(2))
     }
 
     /// Get the least significant byte form a 16 bit value.
@@ -152,8 +152,8 @@ pub enum Opcode {
     SetIdx(u16),
     /// BNNN - Jump to address NNN plus V0.  Carries NNN.
     JumpTo(u16),
-    /// CXNN - Pick a random number 0-255 as r, set VX to (r & NN).  Carries NN.
-    Rand(u8),
+    /// CXNN - Pick a random number 0-255 as r, set VX to (r & NN).  Carries (X, NN).
+    Rand(u8, u8),
     /// DXYN - Draw sprite at (VX, VY).  WIdth 8px, height Npx.
     /// Each row of 8px is read starting from location at the `idx` pointer, which doesn't change here.
     /// VF is set to 1 if any pixels are flipped from set to unset when the sprite is drawn, and 0 if not.
@@ -174,7 +174,7 @@ pub enum Opcode {
     /// FX1E - Increment index pointer by VX.  Carries X.
     IncrementIdx(u8),
     /// FX29 - Set index pointer to the sprite address for the character in VX.
-    ///Hex digis 0-F are all stores as 4x5 glyphs.
+    /// Hex digis 0-F are all stores as 4x5 glyphs.
     /// Carries X.
     NewSprite(u8),
     /// FX33 - Store the binary-coded decimal representation of VX starting at the index pointer.
@@ -214,7 +214,7 @@ impl Opcode {
     /// assert_eq!(Opcode::new(0x9B, 0xC0).unwrap(), Opcode::SkipIfMismatchReg(0xB, 0xC));
     /// assert_eq!(Opcode::new(0xAF, 0xAB).unwrap(), Opcode::SetIdx(0xFAB));
     /// assert_eq!(Opcode::new(0xBF, 0xAB).unwrap(), Opcode::JumpTo(0xFAB));
-    /// assert_eq!(Opcode::new(0xCF, 0xAB).unwrap(), Opcode::Rand(0xF));
+    /// assert_eq!(Opcode::new(0xCF, 0xAB).unwrap(), Opcode::Rand(0xF, 0xAB));
     /// assert_eq!(Opcode::new(0xD9, 0xAF).unwrap(), Opcode::Draw(9, 0xA, 0xF));
     /// assert_eq!(Opcode::new(0xEB, 0x9E).unwrap(), Opcode::SkipIfPressed(0xB));
     /// assert_eq!(Opcode::new(0xEB, 0xA1).unwrap(), Opcode::SkipIfNotPressed(0xB));
@@ -250,7 +250,7 @@ impl TryFrom<RawOpcode> for Opcode {
     fn try_from(raw: RawOpcode) -> Result<Self, Self::Error> {
         use Opcode::*;
         let error_val = Err(anyhow!("Invalid opcode {}", raw));
-        match raw.byte_from_left(0) {
+        match raw.hex_digit_from_left(0) {
             0 => {
                 let addr = raw.last_three_bytes();
                 match addr {
@@ -261,20 +261,20 @@ impl TryFrom<RawOpcode> for Opcode {
             }
             1 => Ok(Jump(raw.last_three_bytes())),
             2 => Ok(Call(raw.last_three_bytes())),
-            3 => Ok(SkipIfEqVal(raw.byte_from_left(1), raw.last_byte())),
-            4 => Ok(SkipIfNotEqVal(raw.byte_from_left(1), raw.last_byte())),
+            3 => Ok(SkipIfEqVal(raw.hex_digit_from_left(1), raw.last_byte())),
+            4 => Ok(SkipIfNotEqVal(raw.hex_digit_from_left(1), raw.last_byte())),
             5 => {
-                if raw.byte_from_left(3) != 0 {
+                if raw.hex_digit_from_left(3) != 0 {
                     error_val
                 } else {
                     let (x, y) = raw.middle_bytes();
                     Ok(SkipIfMatchReg(x, y))
                 }
             }
-            6 => Ok(SetRegister(raw.byte_from_left(1), raw.last_byte())),
-            7 => Ok(Add(raw.byte_from_left(1), raw.last_byte())),
+            6 => Ok(SetRegister(raw.hex_digit_from_left(1), raw.last_byte())),
+            7 => Ok(Add(raw.hex_digit_from_left(1), raw.last_byte())),
             8 => {
-                let suffix = raw.byte_from_left(3);
+                let suffix = raw.hex_digit_from_left(3);
                 if suffix > 0xE {
                     error_val
                 } else {
@@ -294,7 +294,7 @@ impl TryFrom<RawOpcode> for Opcode {
                 }
             }
             9 => {
-                if raw.byte_from_left(3) == 0 {
+                if raw.hex_digit_from_left(3) == 0 {
                     let (x, y) = raw.middle_bytes();
                     Ok(Opcode::SkipIfMismatchReg(x, y))
                 } else {
@@ -303,24 +303,24 @@ impl TryFrom<RawOpcode> for Opcode {
             }
             0xA => Ok(SetIdx(raw.last_three_bytes())),
             0xB => Ok(JumpTo(raw.last_three_bytes())),
-            0xC => Ok(Rand(raw.byte_from_left(1))),
+            0xC => Ok(Rand(raw.hex_digit_from_left(1), raw.last_byte())),
             0xD => Ok(Draw(
-                raw.byte_from_left(1),
-                raw.byte_from_left(2),
-                raw.byte_from_left(3),
+                raw.hex_digit_from_left(1),
+                raw.hex_digit_from_left(2),
+                raw.hex_digit_from_left(3),
             )),
             0xE => {
-                if raw.byte_from_left(2) == 9 && raw.byte_from_left(3) == 0xE {
-                    Ok(SkipIfPressed(raw.byte_from_left(1)))
-                } else if raw.byte_from_left(2) == 0xA && raw.byte_from_left(3) == 1 {
-                    Ok(SkipIfNotPressed(raw.byte_from_left(1)))
+                if raw.hex_digit_from_left(2) == 9 && raw.hex_digit_from_left(3) == 0xE {
+                    Ok(SkipIfPressed(raw.hex_digit_from_left(1)))
+                } else if raw.hex_digit_from_left(2) == 0xA && raw.hex_digit_from_left(3) == 1 {
+                    Ok(SkipIfNotPressed(raw.hex_digit_from_left(1)))
                 } else {
                     error_val
                 }
             }
             0xF => {
-                let r = raw.byte_from_left(1);
-                match (raw.byte_from_left(2), raw.byte_from_left(3)) {
+                let r = raw.hex_digit_from_left(1);
+                match (raw.hex_digit_from_left(2), raw.hex_digit_from_left(3)) {
                     (0, 7) => Ok(StoreDelay(r)),
                     (0, 0xA) => Ok(WaitKey),
                     (1, 5) => Ok(SetDelay(r)),
