@@ -59,9 +59,9 @@ impl RawOpcode {
     /// ```
     /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
-    /// assert_eq!(RawOpcode::from(0xABCD).middle_bytes(), (0xB, 0xC));
+    /// assert_eq!(RawOpcode::from(0xABCD).middle_digits(), (0xB, 0xC));
     /// ```
-    pub fn middle_bytes(&self) -> (u8, u8) {
+    pub fn middle_digits(&self) -> (u8, u8) {
         (self.hex_digit_from_left(1), self.hex_digit_from_left(2))
     }
 
@@ -79,9 +79,9 @@ impl RawOpcode {
     /// ```
     /// # use chip8::emulator::opcode::RawOpcode;
     /// # use pretty_assertions::assert_eq;
-    /// assert_eq!(RawOpcode::from(0xABCD).last_three_bytes(), 0xBCD);
+    /// assert_eq!(RawOpcode::from(0xABCD).last_three_digits(), 0xBCD);
     /// ```
-    pub fn last_three_bytes(&self) -> u16 {
+    pub fn last_three_digits(&self) -> u16 {
         self.0 & 0x0FFF
     }
 }
@@ -252,22 +252,22 @@ impl TryFrom<RawOpcode> for Opcode {
         let error_val = Err(anyhow!("Invalid opcode {}", raw));
         match raw.hex_digit_from_left(0) {
             0 => {
-                let addr = raw.last_three_bytes();
+                let addr = raw.last_three_digits();
                 match addr {
                     0x0E0 => Ok(ClearScreen),
                     0x0EE => Ok(Return),
                     _ => Ok(MachineCall(addr)),
                 }
             }
-            1 => Ok(Jump(raw.last_three_bytes())),
-            2 => Ok(Call(raw.last_three_bytes())),
+            1 => Ok(Jump(raw.last_three_digits())),
+            2 => Ok(Call(raw.last_three_digits())),
             3 => Ok(SkipIfEqVal(raw.hex_digit_from_left(1), raw.last_byte())),
             4 => Ok(SkipIfNotEqVal(raw.hex_digit_from_left(1), raw.last_byte())),
             5 => {
                 if raw.hex_digit_from_left(3) != 0 {
                     error_val
                 } else {
-                    let (x, y) = raw.middle_bytes();
+                    let (x, y) = raw.middle_digits();
                     Ok(SkipIfMatchReg(x, y))
                 }
             }
@@ -278,7 +278,7 @@ impl TryFrom<RawOpcode> for Opcode {
                 if suffix > 0xE {
                     error_val
                 } else {
-                    let (x, y) = raw.middle_bytes();
+                    let (x, y) = raw.middle_digits();
                     match suffix {
                         0 => Ok(Assign(x, y)),
                         1 => Ok(AssignOr(x, y)),
@@ -295,14 +295,14 @@ impl TryFrom<RawOpcode> for Opcode {
             }
             9 => {
                 if raw.hex_digit_from_left(3) == 0 {
-                    let (x, y) = raw.middle_bytes();
+                    let (x, y) = raw.middle_digits();
                     Ok(Opcode::SkipIfMismatchReg(x, y))
                 } else {
                     error_val
                 }
             }
-            0xA => Ok(SetIdx(raw.last_three_bytes())),
-            0xB => Ok(JumpTo(raw.last_three_bytes())),
+            0xA => Ok(SetIdx(raw.last_three_digits())),
+            0xB => Ok(JumpTo(raw.last_three_digits())),
             0xC => Ok(Rand(raw.hex_digit_from_left(1), raw.last_byte())),
             0xD => Ok(Draw(
                 raw.hex_digit_from_left(1),
