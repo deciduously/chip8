@@ -5,6 +5,9 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use std::{fs::File, io::Read, path::PathBuf};
 
+#[cfg(test)]
+mod test;
+
 /// The sprites used to render hex digits:
 /// ```txt
 /// DEC   HEX    BIN         RESULT    DEC   HEX    BIN         RESULT
@@ -165,7 +168,7 @@ impl Machine {
             AssignAnd(x, y) => self.assign_and(x, y),
             AssignXor(x, y) => self.assign_xor(x, y),
             AddAssign(x, y) => self.add_assign(x, y),
-            SubAssign(x, y) => {}
+            SubAssign(x, y) => self.sub_assign(x, y),
             ShiftRight(x) => {}
             FlippedSubAssign(x, y) => {}
             ShiftLeft(x) => {}
@@ -267,6 +270,7 @@ impl Machine {
     }
 
     // OPCODE FNS
+    // FIXME: I think these can move to Opcode, take a &mut machine?
 
     /// Add y to value at register X
     fn add(&mut self, x: u8, y: u8) {
@@ -335,6 +339,23 @@ impl Machine {
         self.next_opcode();
     }
 
+    /// Subtract the contents of VY from VX, using the carry flag as a borrow flag if it drops under 0
+    fn sub_assign(&mut self, x: u8, y: u8) {
+        let reg_x = self.register_get(x);
+        let reg_y = self.register_get(y);
+
+        // Check if the addition will overflow a byte, set carry flag and VX accordingly
+        let headroom = 0xFF - reg_x;
+        if reg_y > headroom {
+            self.carry_on();
+            self.register_set(x, reg_y - headroom);
+        } else {
+            self.carry_off();
+            self.register_set(x, reg_x + reg_y);
+        }
+        self.next_opcode();
+    }
+
     /// Store the binary coded decimal representation of the value at VX to memory at idx, idx + 1, and idx + 2.
     ///
     /// Shamelessly stolen from the Opcode Examples section of [this post](http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/), Example 3.
@@ -362,225 +383,5 @@ impl Default for Machine {
             sp: 0,
             key: [0; NUM_KEYS],
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use pretty_assertions::assert_eq;
-    use std::convert::TryFrom;
-    #[test]
-    fn test_load_fonts() {
-        let machine = Machine::new();
-        // The constructor should properly load the full fontset
-        assert_eq!(machine.memory_get(0), 0xF0);
-        assert_eq!(machine.memory_get(79), 0x80);
-    }
-    #[test]
-    fn test_load_game() {
-        let mut machine = Machine::new();
-        let bytes = machine.load_game("pong").unwrap();
-        assert_eq!(bytes, 246);
-        assert_eq!(machine.current_byte(), 0x6A)
-    }
-    #[test]
-    fn test_load_second_game() {
-        // Should clear memory and load the new game
-        let mut machine = Machine::new();
-        let _: usize = machine.load_game("pong").unwrap();
-        let bytes = machine.load_game("tank").unwrap();
-        assert_eq!(bytes, 560);
-        assert_eq!(machine.current_byte(), 0x12)
-    }
-    #[test]
-    fn test_game_not_found() {
-        let mut machine = Machine::new();
-        assert_eq!(
-            machine.load_game("ping").err().unwrap().to_string(),
-            "No such file or directory (os error 2)".to_string()
-        );
-    }
-    #[test]
-    fn test_opcode_2nnn_call() {
-        let mut machine = Machine::new();
-        machine
-            .update_opcode(Some(Opcode::try_from(0x2BCD).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-        // Should store the current location in the stack to jump back later
-        assert_eq!(machine.stack[0], PC_BEGIN as usize);
-        // Should increment stack pointer
-        assert_eq!(machine.sp, 1);
-        // Should set program counter to new location
-        assert_eq!(machine.pc, 0xBCD);
-    }
-    #[test]
-    fn test_opcode_6xnn_set_register() {
-        let mut machine = Machine::new();
-        // Seed registers
-        machine.registers[0xB] = 3;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x6BCD).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should set register to given value
-        assert_eq!(machine.register_get(0xB), 0xCD);
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_7xnn_add() {
-        let mut machine = Machine::new();
-        // Seed registers
-        machine.registers[0xB] = 3;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x7BCD).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should add NN to reg_x
-        assert_eq!(machine.register_get(0xB), 3 + 0xCD);
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_8xy0_assign() {
-        let mut machine = Machine::new();
-        // Seed registers
-        machine.registers[0xB] = 3;
-        machine.registers[0xC] = 15;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x8BC0).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should assign VY to VX
-        assert_eq!(machine.register_get(0xB), 15);
-        // Should not affect VY
-        assert_eq!(machine.register_get(0xC), 15);
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_8xy1_assign_or() {
-        let mut machine = Machine::new();
-        // Seed registers
-        machine.registers[0xB] = 0xA;
-        machine.registers[0xC] = 4;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x8BC1).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should assign VY to (VX | VY)
-        assert_eq!(machine.register_get(0xB), 14);
-        // Should not affect VY
-        assert_eq!(machine.register_get(0xC), 4);
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_8xy2_assign_and() {
-        let mut machine = Machine::new();
-        // Seed registers
-        machine.registers[0xB] = 0xA;
-        machine.registers[0xC] = 0xC;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x8BC2).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should assign VY to (VX & VY)
-        assert_eq!(machine.register_get(0xB), 8);
-        // Should not affect VY
-        assert_eq!(machine.register_get(0xC), 0xC);
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_8xy3_assign_xor() {
-        let mut machine = Machine::new();
-        // Seed registers
-        machine.registers[0xB] = 0xA;
-        machine.registers[0xC] = 0xC;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x8BC3).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should assign VY to (VX ^ VY)
-        assert_eq!(machine.register_get(0xB), 6);
-        // Should not affect VY
-        assert_eq!(machine.register_get(0xC), 0xC);
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_8xy4_add_assign() {
-        let mut machine = Machine::new();
-        // Seed registers
-        machine.registers[0xB] = 3;
-        machine.registers[0xC] = 15;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x8BC4).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should add VY to VX, wrapping around 0xFF
-        assert_eq!(machine.register_get(0xB), 18);
-        // Should not affect VY
-        assert_eq!(machine.register_get(0xC), 15);
-        // Should not set carry flag
-        assert!(!machine.carry_flag_set());
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_8xy4_add_assign_with_carry() {
-        let mut machine = Machine::new();
-        // Seed registers - each is only one byte, so this will wrap over
-        machine.registers[0xB] = 250;
-        machine.registers[0xC] = 15;
-        machine
-            .update_opcode(Some(Opcode::try_from(0x8BC4).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-
-        // Should add VY to VX, wrapping around 0xFF
-        assert_eq!(machine.register_get(0xB), 10);
-        // Should not affect VY
-        assert_eq!(machine.register_get(0xC), 15);
-        // Should set carry flag
-        assert!(machine.carry_flag_set());
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_annn_set_idx() {
-        let mut machine = Machine::new();
-        machine
-            .update_opcode(Some(Opcode::try_from(0xABCD).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-        // Should store index given
-        assert_eq!(machine.idx, 0xBCD);
-        // Should increment program counter by two
-        assert_eq!(machine.pc, PC_BEGIN + 2);
-    }
-    #[test]
-    fn test_opcode_fx33_bcd() {
-        let mut machine = Machine::new();
-        machine.registers[0xB] = 195;
-        machine.idx = 0xAB;
-        machine
-            .update_opcode(Some(Opcode::try_from(0xFB33).unwrap()))
-            .unwrap();
-        machine.execute_opcode();
-        // Should store the BCD of V[X] to the right memory locations
-        assert_eq!(machine.memory[0xAB], 1);
-        assert_eq!(machine.memory[0xAB + 1], 9);
-        assert_eq!(machine.memory[0xAB + 2], 5);
     }
 }
