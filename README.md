@@ -2,9 +2,15 @@
 
 Yes, another Rust/WASM Chip8.  Targets SDL2 and/or an HTML5 canvas via WebAssembly.
 
-## Acknowledgements
+## Usage
 
-The games included in the repo are the [Chip8 Games Pack](https://www.zophar.net/pdroms/chip8/chip-8-games-pack.html).   The `TESTER` one is from [corax89/chip8-test-rom](https://github.com/corax89/chip8-test-rom).
+I tested with the [Chip8 Games Pack](https://www.zophar.net/pdroms/chip8/chip-8-games-pack.html).   The `TESTER` one is from [corax89/chip8-test-rom](https://github.com/corax89/chip8-test-rom).
+
+Create a folder called `games/` in the root of the repo and add the games there.  **COMING SOON** Pass the desired game to run at the command line.
+
+**TODO** Maybe enumerate the games folder, and let the user specify it?  Or provide a hard path?  And/or hardcode the gameset into the binary??
+
+## Acknowledgements
 
 These are the reference resources I needed:
 

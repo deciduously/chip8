@@ -5,9 +5,10 @@ use std::convert::TryFrom;
 #[test]
 fn test_load_fonts() {
     let machine = Machine::new();
-    // The constructor should properly load the full fontset
+    // The constructor should properly load the full fontset and nothing else.
     assert_eq!(machine.memory_get(0), 0xF0);
     assert_eq!(machine.memory_get(79), 0x80);
+    assert_eq!(machine.memory_get(80), 0);
 }
 
 #[test]
@@ -40,10 +41,7 @@ fn test_game_not_found() {
 #[test]
 fn test_opcode_2nnn_call() {
     let mut machine = Machine::new();
-    machine
-        .update_opcode(Some(Opcode::try_from(0x2BCD).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x2BCD).unwrap().execute(&mut machine);
     // Should store the current location in the stack to jump back later
     assert_eq!(machine.stack[0], PC_BEGIN as usize);
     // Should increment stack pointer
@@ -57,10 +55,7 @@ fn test_opcode_6xnn_set_register() {
     let mut machine = Machine::new();
     // Seed registers
     machine.registers[0xB] = 3;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x6BCD).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x6BCD).unwrap().execute(&mut machine);
 
     // Should set register to given value
     assert_eq!(machine.register_get(0xB), 0xCD);
@@ -73,10 +68,7 @@ fn test_opcode_7xnn_add() {
     let mut machine = Machine::new();
     // Seed registers
     machine.registers[0xB] = 3;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x7BCD).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x7BCD).unwrap().execute(&mut machine);
 
     // Should add NN to reg_x
     assert_eq!(machine.register_get(0xB), 3 + 0xCD);
@@ -90,10 +82,7 @@ fn test_opcode_8xy0_assign() {
     // Seed registers
     machine.registers[0xB] = 3;
     machine.registers[0xC] = 15;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC0).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x8BC0).unwrap().execute(&mut machine);
 
     // Should assign VY to VX
     assert_eq!(machine.register_get(0xB), 15);
@@ -109,10 +98,7 @@ fn test_opcode_8xy1_assign_or() {
     // Seed registers
     machine.registers[0xB] = 0xA;
     machine.registers[0xC] = 4;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC1).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x8BC1).unwrap().execute(&mut machine);
 
     // Should assign VY to (VX | VY)
     assert_eq!(machine.register_get(0xB), 14);
@@ -128,10 +114,7 @@ fn test_opcode_8xy2_assign_and() {
     // Seed registers
     machine.registers[0xB] = 0xA;
     machine.registers[0xC] = 0xC;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC2).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x8BC2).unwrap().execute(&mut machine);
 
     // Should assign VY to (VX & VY)
     assert_eq!(machine.register_get(0xB), 8);
@@ -147,10 +130,7 @@ fn test_opcode_8xy3_assign_xor() {
     // Seed registers
     machine.registers[0xB] = 0xA;
     machine.registers[0xC] = 0xC;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC3).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x8BC3).unwrap().execute(&mut machine);
 
     // Should assign VY to (VX ^ VY)
     assert_eq!(machine.register_get(0xB), 6);
@@ -166,10 +146,7 @@ fn test_opcode_8xy4_add_assign() {
     // Seed registers
     machine.registers[0xB] = 3;
     machine.registers[0xC] = 15;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC4).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x8BC4).unwrap().execute(&mut machine);
 
     // Should add VY to VX, wrapping around 0xFF
     assert_eq!(machine.register_get(0xB), 18);
@@ -187,10 +164,7 @@ fn test_opcode_8xy4_add_assign_with_carry() {
     // Seed registers - each is only one byte, so this will wrap over
     machine.registers[0xB] = 250;
     machine.registers[0xC] = 15;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC4).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x8BC4).unwrap().execute(&mut machine);
 
     // Should add VY to VX, wrapping around 0xFF
     assert_eq!(machine.register_get(0xB), 10);
@@ -208,17 +182,14 @@ fn test_opcode_8xy5_sub_assign() {
     // Seed registers
     machine.registers[0xB] = 0xD;
     machine.registers[0xC] = 0xA;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC5).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0x8BC5).unwrap().execute(&mut machine);
 
-    // Should add VY to VX, wrapping around 0xFF
-    assert_eq!(machine.register_get(0xB), 7);
+    // Should subtract VY from VX, wrapping around 0xFF
+    assert_eq!(machine.register_get(0xB), 3);
     // Should not affect VY
-    assert_eq!(machine.register_get(0xC), 4);
-    // Should not set carry flag
-    assert!(!machine.carry_flag_set());
+    assert_eq!(machine.register_get(0xC), 0xA);
+    // Should set carry flag (in this case, it means no borrow)
+    assert!(machine.carry_flag_set());
     // Should increment program counter by two
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }
@@ -227,19 +198,16 @@ fn test_opcode_8xy5_sub_assign() {
 fn test_opcode_8xy5_sub_assign_with_borrow() {
     let mut machine = Machine::new();
     // Seed registers - each is only one byte, so this will wrap over
-    machine.registers[0xB] = 250;
-    machine.registers[0xC] = 15;
-    machine
-        .update_opcode(Some(Opcode::try_from(0x8BC5).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    machine.registers[0xB] = 0xA;
+    machine.registers[0xC] = 0xD;
+    Opcode::try_from(0x8BC5).unwrap().execute(&mut machine);
 
-    // Should add VY to VX, wrapping around 0xFF
-    assert_eq!(machine.register_get(0xB), 10);
+    // Should subtract VY from VX, wrapping around 0xFF
+    assert_eq!(machine.register_get(0xB), 0xFD);
     // Should not affect VY
-    assert_eq!(machine.register_get(0xC), 15);
-    // Should set carry flag
-    assert!(machine.carry_flag_set());
+    assert_eq!(machine.register_get(0xC), 0xD);
+    // Should not set carry flag (in this case, it means there was a borrow)
+    assert!(!machine.carry_flag_set());
     // Should increment program counter by two
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }
@@ -247,10 +215,7 @@ fn test_opcode_8xy5_sub_assign_with_borrow() {
 #[test]
 fn test_opcode_annn_set_idx() {
     let mut machine = Machine::new();
-    machine
-        .update_opcode(Some(Opcode::try_from(0xABCD).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0xABCD).unwrap().execute(&mut machine);
     // Should store index given
     assert_eq!(machine.idx, 0xBCD);
     // Should increment program counter by two
@@ -262,10 +227,7 @@ fn test_opcode_fx33_bcd() {
     let mut machine = Machine::new();
     machine.registers[0xB] = 195;
     machine.idx = 0xAB;
-    machine
-        .update_opcode(Some(Opcode::try_from(0xFB33).unwrap()))
-        .unwrap();
-    machine.execute_opcode();
+    Opcode::try_from(0xFB33).unwrap().execute(&mut machine);
     // Should store the BCD of V[X] to the right memory locations
     assert_eq!(machine.memory[0xAB], 1);
     assert_eq!(machine.memory[0xAB + 1], 9);

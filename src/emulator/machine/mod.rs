@@ -2,7 +2,6 @@
 
 use super::{opcode::*, *};
 use anyhow::Result;
-use lazy_static::lazy_static;
 use std::{fs::File, io::Read, path::PathBuf};
 
 #[cfg(test)]
@@ -36,11 +35,6 @@ const FONTSET: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
-lazy_static! {
-    /// The location on disk for the available ROMS to load is currently just hardcoded
-    pub static ref GAMES_DIR: PathBuf = PathBuf::from("games");
-}
-
 /// The top-level software representation of the Chip8 machine
 pub struct Machine {
     /// The current opcode
@@ -56,9 +50,9 @@ pub struct Machine {
     /// The 16th register is the "carry" flag
     registers: [u8; NUM_REGISTERS],
     /// Index register
-    idx: u16,
+    pub idx: u16,
     /// Program counter
-    pc: u16,
+    pub pc: u16,
     /// Graphics system - 2048 total pixels, arranged 64x32
     screen: [u8; TOTAL_PIXELS],
     /// Delay timer - 60Hz, counts down if above 0
@@ -74,6 +68,8 @@ pub struct Machine {
 }
 
 impl Machine {
+    // PUBLIC INTERFACE
+
     /// Initialize memory and registers.
     pub fn new() -> Self {
         // Stack, registers, memory, timers, and program counters all have sensible defaults
@@ -95,12 +91,11 @@ impl Machine {
         // FIXME: This is useless if no game has previously been loaded, do I care?
         self.reset();
 
-        // All the games live in the GAMES_DIR
-        let mut game_path = GAMES_DIR.clone();
-        game_path.push(name.to_uppercase());
+        // All the games live in the GAMES_DIR, have an uppercase name, and a .ch8 extension
+        let game_path = Self::rom_path(name);
 
         // First, read the binary info.
-        let mut file = File::open(game_path)?;
+        let mut file = File::open(&game_path)?;
         let mut buf: Vec<u8> = vec![];
         let bytes_read = file.read_to_end(&mut buf)?;
 
@@ -109,7 +104,7 @@ impl Machine {
             self.memory_set(idx as u16 + self.pc, byte);
         }
 
-        println!("Loaded {} bytes from {}", bytes_read, name);
+        println!("Loaded {} bytes from {:?}", bytes_read, game_path);
         Ok(bytes_read)
     }
 
@@ -124,71 +119,32 @@ impl Machine {
         Ok(())
     }
 
-    // PRIVATE
+    // PRIVATE/INTERNAL INTERFACE
 
     /// Set the carry flag to off
-    fn carry_off(&mut self) {
+    pub fn carry_off(&mut self) {
         self.registers[0xF] = 0;
     }
 
     /// Set the carry flag to on
-    fn carry_on(&mut self) {
+    pub fn carry_on(&mut self) {
         self.registers[0xF] = 1;
     }
     /// Get the current value of the carry flag
-    fn carry_flag_set(&mut self) -> bool {
+    pub fn carry_flag_set(&mut self) -> bool {
         self.registers[0xF] == 1
     }
 
     /// Emulate a single cycle of the Chip8 CPU.
-    fn cycle(&mut self) -> Result<()> {
-        // passing `None` means it should read a new opcode using the built-in program counter
-        self.update_opcode(None)?;
-        self.execute_opcode();
+    pub fn cycle(&mut self) -> Result<()> {
+        // Grab the current opcode and copy it into this stack frame
+        self.update_opcode()?;
+        let code = self.opcode;
+        // Execute it against the current machine
+        code.execute(self);
+        // Decrement timers if needed
         self.update_timers();
         Ok(())
-    }
-
-    /// Perform an opcode.
-    fn execute_opcode(&mut self) {
-        use Opcode::*;
-        match self.opcode {
-            MachineCall(addr) => {}
-            ClearScreen => {}
-            Return => {}
-            Jump(addr) => {}
-            Call(addr) => self.call(addr),
-            SkipIfEqVal(x, y) => {}
-            SkipIfNotEqVal(x, y) => {}
-            SkipIfMatchReg(x, y) => {}
-            SetRegister(x, y) => self.set_register(x, y),
-            Add(x, y) => self.add(x, y),
-            Assign(x, y) => self.assign(x, y),
-            AssignOr(x, y) => self.assign_or(x, y),
-            AssignAnd(x, y) => self.assign_and(x, y),
-            AssignXor(x, y) => self.assign_xor(x, y),
-            AddAssign(x, y) => self.add_assign(x, y),
-            SubAssign(x, y) => self.sub_assign(x, y),
-            ShiftRight(x) => {}
-            FlippedSubAssign(x, y) => {}
-            ShiftLeft(x) => {}
-            SkipIfMismatchReg(x, y) => {}
-            SetIdx(addr) => self.set_idx(addr),
-            JumpTo(addr) => {}
-            Rand(x, mask) => {}
-            Draw(x, y, h) => {}
-            SkipIfPressed(key) => {}
-            SkipIfNotPressed(key) => {}
-            StoreDelay(x) => {}
-            WaitKey => {}
-            SetDelay(x) => {}
-            SetSound(x) => {}
-            IncrementIdx(x) => {}
-            NewSprite(x) => {}
-            BCD(x) => self.binary_coded_decimal(x),
-            DumpRegisters(x) => {}
-            FillRegisters(x) => {}
-        }
     }
 
     /// Fetch the opcode specified by the program counter.
@@ -208,33 +164,33 @@ impl Machine {
     }
 
     /// Get the byte at memory address x
-    fn memory_get(&self, addr: u16) -> u8 {
+    pub fn memory_get(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
     }
 
     /// Set the value at register x
-    fn memory_set(&mut self, addr: u16, val: u8) {
+    pub fn memory_set(&mut self, addr: u16, val: u8) {
         self.memory[addr as usize] = val;
     }
 
     /// Advance a single opcode
-    fn next_opcode(&mut self) {
+    pub fn next_opcode(&mut self) {
         self.pc += 2;
     }
 
     /// Push the current location onto the stack
-    fn push_callsite(&mut self) {
+    pub fn push_callsite(&mut self) {
         self.stack[self.sp] = self.pc as usize;
         self.sp += 1;
     }
 
     /// Get the value at register x
-    fn register_get(&self, x: u8) -> u8 {
+    pub fn register_get(&self, x: u8) -> u8 {
         self.registers[x as usize]
     }
 
     /// Set the value at register x
-    fn register_set(&mut self, x: u8, val: u8) {
+    pub fn register_set(&mut self, x: u8, val: u8) {
         self.registers[x as usize] = val;
     }
 
@@ -250,12 +206,8 @@ impl Machine {
 
     /// Update the opcode either with the passed value (for testing) or the current byte if None.
     /// Only public for testing, should not be used by other objects
-    pub fn update_opcode(&mut self, opcode: Option<Opcode>) -> Result<()> {
-        let new_op = match opcode {
-            Some(code) => code,
-            None => self.fetch_opcode()?,
-        };
-        self.opcode = new_op;
+    pub fn update_opcode(&mut self) -> Result<()> {
+        self.opcode = self.fetch_opcode()?;
         Ok(())
     }
 
@@ -269,102 +221,20 @@ impl Machine {
         }
     }
 
-    // OPCODE FNS
-    // FIXME: I think these can move to Opcode, take a &mut machine?
+    // HELPERS
 
-    /// Add y to value at register X
-    fn add(&mut self, x: u8, y: u8) {
-        self.register_set(x, self.register_get(x) + y);
-        self.next_opcode();
-    }
-
-    /// Assign VX to VY
-    fn assign(&mut self, x: u8, y: u8) {
-        self.register_set(x, self.register_get(y));
-        self.next_opcode();
-    }
-
-    /// Assign VX to (VX & VY)
-    fn assign_and(&mut self, x: u8, y: u8) {
-        self.register_set(x, self.register_get(y) & self.register_get(x));
-        self.next_opcode();
-    }
-
-    /// Assign VX to (VX | VY)
-    fn assign_or(&mut self, x: u8, y: u8) {
-        self.register_set(x, self.register_get(y) | self.register_get(x));
-        self.next_opcode();
-    }
-
-    /// Assign VX to (VX ^ VY)
-    fn assign_xor(&mut self, x: u8, y: u8) {
-        self.register_set(x, self.register_get(y) ^ self.register_get(x));
-        self.next_opcode();
-    }
-
-    /// Call subroutine at addr
-    fn call(&mut self, addr: u16) {
-        // Store current location on the stack
-        self.push_callsite();
-        // Jump to new location
-        self.pc = addr;
-    }
-
-    /// Set index pointer to addr.
-    fn set_idx(&mut self, addr: u16) {
-        self.idx = addr;
-        self.next_opcode();
-    }
-
-    /// Set register to value
-    fn set_register(&mut self, x: u8, y: u8) {
-        self.register_set(x, y);
-        self.next_opcode()
-    }
-
-    /// Add the contents of VY to VX, setting the carry flag if it wraps over a u8
-    fn add_assign(&mut self, x: u8, y: u8) {
-        let reg_x = self.register_get(x);
-        let reg_y = self.register_get(y);
-
-        // Check if the addition will overflow a byte, set carry flag and VX accordingly
-        let headroom = 0xFF - reg_x;
-        if reg_y > headroom {
-            self.carry_on();
-            self.register_set(x, reg_y - headroom);
-        } else {
-            self.carry_off();
-            self.register_set(x, reg_x + reg_y);
-        }
-        self.next_opcode();
-    }
-
-    /// Subtract the contents of VY from VX, using the carry flag as a borrow flag if it drops under 0
-    fn sub_assign(&mut self, x: u8, y: u8) {
-        let reg_x = self.register_get(x);
-        let reg_y = self.register_get(y);
-
-        // Check if the addition will overflow a byte, set carry flag and VX accordingly
-        let headroom = 0xFF - reg_x;
-        if reg_y > headroom {
-            self.carry_on();
-            self.register_set(x, reg_y - headroom);
-        } else {
-            self.carry_off();
-            self.register_set(x, reg_x + reg_y);
-        }
-        self.next_opcode();
-    }
-
-    /// Store the binary coded decimal representation of the value at VX to memory at idx, idx + 1, and idx + 2.
+    /// Helper to pull the ROM relative filepath from the filename
     ///
-    /// Shamelessly stolen from the Opcode Examples section of [this post](http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/), Example 3.
-    fn binary_coded_decimal(&mut self, x: u8) {
-        let reg_x = self.register_get(x);
-        self.memory_set(self.idx, reg_x / 100);
-        self.memory_set(self.idx + 1, (reg_x / 10) % 10);
-        self.memory_set(self.idx + 2, (reg_x % 100) % 10);
-        self.next_opcode();
+    /// Example:
+    /// ```
+    /// # use chip8::emulator::machine::Machine;
+    /// assert_eq!(Machine::rom_path("pong").to_str().unwrap(), "games/PONG.ch8")
+    /// ```
+    pub fn rom_path(name: &str) -> PathBuf {
+        let mut game_path = PathBuf::from(GAMES_DIR);
+        game_path.push(name.to_uppercase());
+        game_path.set_extension(ROM_EXT);
+        game_path
     }
 }
 

@@ -2,6 +2,7 @@
 //!
 //! Largely written by staring at [the Chip8 Wikipedia article](https://en.wikipedia.org/wiki/CHIP-8#Opcode_table) for a while.
 
+use super::machine::Machine;
 use anyhow::{anyhow, Result};
 use std::{convert::TryFrom, fmt};
 
@@ -236,6 +237,107 @@ impl Opcode {
     /// ```
     pub fn new(first: u8, second: u8) -> Result<Self> {
         Ok(Self::try_from(RawOpcode::new(first, second))?)
+    }
+
+    /// Apply this opcode to a machine instance
+    pub fn execute(&self, machine: &mut Machine) {
+        use Opcode::*;
+        match *self {
+            MachineCall(addr) => {}
+            ClearScreen => {}
+            Return => {}
+            Jump(addr) => {}
+            Call(addr) => {
+                // Store current location on the stack
+                machine.push_callsite();
+                // Jump to new location
+                machine.pc = addr;
+            }
+            SkipIfEqVal(x, y) => {}
+            SkipIfNotEqVal(x, y) => {}
+            SkipIfMatchReg(x, y) => {}
+            SetRegister(x, y) => {
+                machine.register_set(x, y);
+                machine.next_opcode();
+            }
+            Add(x, y) => {
+                machine.register_set(x, machine.register_get(x) + y);
+                machine.next_opcode();
+            }
+            Assign(x, y) => {
+                machine.register_set(x, machine.register_get(y));
+                machine.next_opcode();
+            }
+            AssignOr(x, y) => {
+                machine.register_set(x, machine.register_get(y) | machine.register_get(x));
+                machine.next_opcode();
+            }
+            AssignAnd(x, y) => {
+                machine.register_set(x, machine.register_get(y) & machine.register_get(x));
+                machine.next_opcode();
+            }
+            AssignXor(x, y) => {
+                machine.register_set(x, machine.register_get(y) ^ machine.register_get(x));
+                machine.next_opcode();
+            }
+            AddAssign(x, y) => {
+                let reg_x = machine.register_get(x);
+                let reg_y = machine.register_get(y);
+
+                // Check if the addition will overflow a byte, set carry flag and VX accordingly
+                let headroom = 0xFF - reg_x;
+                if reg_y > headroom {
+                    machine.carry_on();
+                    machine.register_set(x, reg_y - headroom);
+                } else {
+                    machine.carry_off();
+                    machine.register_set(x, reg_x + reg_y);
+                }
+                machine.next_opcode();
+            }
+            SubAssign(x, y) => {
+                let reg_x = machine.register_get(x);
+                let reg_y = machine.register_get(y);
+
+                // Check if the addition will drop below zero, set carry flag and VX accordingly
+                if reg_y as i16 - reg_x as i16 > 0 {
+                    machine.carry_off(); // When it's a borrow, we set it to 0 subtract from the max byte
+                    machine.register_set(x, 0xFF - (reg_y - reg_x - 1));
+                } else {
+                    machine.carry_on();
+                    machine.register_set(x, reg_x - reg_y);
+                }
+                machine.next_opcode();
+            }
+            ShiftRight(x) => {}
+            FlippedSubAssign(x, y) => {}
+            ShiftLeft(x) => {}
+            SkipIfMismatchReg(x, y) => {}
+            SetIdx(addr) => {
+                machine.idx = addr;
+                machine.next_opcode();
+            }
+            JumpTo(addr) => {}
+            Rand(x, mask) => {}
+            Draw(x, y, h) => {}
+            SkipIfPressed(key) => {}
+            SkipIfNotPressed(key) => {}
+            StoreDelay(x) => {}
+            WaitKey => {}
+            SetDelay(x) => {}
+            SetSound(x) => {}
+            IncrementIdx(x) => {}
+            NewSprite(x) => {}
+            BCD(x) => {
+                let reg_x = machine.register_get(x);
+                machine.memory_set(machine.idx, reg_x / 100);
+                machine.memory_set(machine.idx + 1, (reg_x / 10) % 10);
+                machine.memory_set(machine.idx + 2, (reg_x % 100) % 10);
+                machine.next_opcode();
+            }
+            DumpRegisters(x) => {}
+            FillRegisters(x) => {}
+        }
     }
 }
 

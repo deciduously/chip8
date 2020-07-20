@@ -21,3 +21,7 @@ const STACK_SIZE: usize = 16;
 const TOTAL_PIXELS: usize = PIXEL_COLS * PIXEL_ROWS;
 /// Starting memory location for the program to run - earlier cells are machine-reserved.
 const PC_BEGIN: u16 = 0x200;
+/// ROM directory
+const GAMES_DIR: &str = "games";
+/// ROM file extention
+const ROM_EXT: &str = "ch8";
