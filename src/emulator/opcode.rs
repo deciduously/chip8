@@ -310,7 +310,20 @@ impl Opcode {
                 machine.next_opcode();
             }
             ShiftRight(x) => {}
-            FlippedSubAssign(x, y) => {}
+            FlippedSubAssign(x, y) => {
+                let reg_x = machine.register_get(x);
+                let reg_y = machine.register_get(y);
+
+                // Check if the addition will drop below zero, set carry flag and VX accordingly
+                if reg_x as i16 - reg_y as i16 > 0 {
+                    machine.carry_off(); // When it's a borrow, we set it to 0 subtract from the max byte
+                    machine.register_set(x, 0xFF - (reg_x - reg_y - 1));
+                } else {
+                    machine.carry_on();
+                    machine.register_set(x, reg_y - reg_x);
+                }
+                machine.next_opcode();
+            }
             ShiftLeft(x) => {}
             SkipIfMismatchReg(x, y) => {}
             SetIdx(addr) => {

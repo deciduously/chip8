@@ -213,6 +213,42 @@ fn test_opcode_8xy5_sub_assign_with_borrow() {
 }
 
 #[test]
+fn test_opcode_8xy7_flipped_sub_assign() {
+    let mut machine = Machine::new();
+    // Seed registers
+    machine.registers[0xB] = 0xA;
+    machine.registers[0xC] = 0xD;
+    Opcode::try_from(0x8BC7).unwrap().execute(&mut machine);
+
+    // Should subtract VY from VX, wrapping around 0xFF
+    assert_eq!(machine.register_get(0xB), 3);
+    // Should not affect VY
+    assert_eq!(machine.register_get(0xC), 0xD);
+    // Should set carry flag (in this case, it means no borrow)
+    assert!(machine.carry_flag_set());
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
+fn test_opcode_8xy7_flipped_sub_assign_with_borrow() {
+    let mut machine = Machine::new();
+    // Seed registers - each is only one byte, so this will wrap over
+    machine.registers[0xB] = 0xD;
+    machine.registers[0xC] = 2;
+    Opcode::try_from(0x8BC7).unwrap().execute(&mut machine);
+
+    // Should subtract VY from VX, wrapping around 0xFF
+    assert_eq!(machine.register_get(0xB), 0xF5);
+    // Should not affect VY
+    assert_eq!(machine.register_get(0xC), 2);
+    // Should not set carry flag (in this case, it means there was a borrow)
+    assert!(!machine.carry_flag_set());
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
 fn test_opcode_annn_set_idx() {
     let mut machine = Machine::new();
     Opcode::try_from(0xABCD).unwrap().execute(&mut machine);
