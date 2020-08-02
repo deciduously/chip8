@@ -348,7 +348,6 @@ fn test_opcode_fx18_set_sound() {
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }
 
-
 #[test]
 fn test_opcode_fx33_bcd() {
     let mut machine = Machine::new();
@@ -359,6 +358,66 @@ fn test_opcode_fx33_bcd() {
     assert_eq!(machine.memory[0xAB], 1);
     assert_eq!(machine.memory[0xAB + 1], 9);
     assert_eq!(machine.memory[0xAB + 2], 5);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
+fn test_fx55_dump_registers() {
+    let mut machine = Machine::new();
+    machine.idx = 0xBCD;
+    machine.registers[0] = 0xC;
+    machine.registers[1] = 4;
+    machine.registers[2] = 123;
+    machine.registers[3] = 98;
+    machine.registers[4] = 12;
+    Opcode::try_from(0xF355).unwrap().execute(&mut machine);
+    // Should store V0 thorugh VX inclusive to memory starting at the index pointer
+    let i = machine.idx as usize;
+    assert_eq!(machine.memory[i], 0xC);
+    assert_eq!(machine.memory[i + 1], 4);
+    assert_eq!(machine.memory[i + 2], 123);
+    assert_eq!(machine.memory[i + 3], 98);
+    // Should only affect that memory, no further
+    assert_eq!(machine.memory[i + 4], 0);
+    // SHould not modify the index pointer
+    assert_eq!(machine.idx, 0xBCD);
+    // Should not modify the registers
+    assert_eq!(machine.register_get(0), 0xC);
+    assert_eq!(machine.register_get(1), 4);
+    assert_eq!(machine.register_get(2), 123);
+    assert_eq!(machine.register_get(3), 98);
+    assert_eq!(machine.register_get(4), 12);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
+fn test_fx65_fill_registers() {
+    let mut machine = Machine::new();
+    machine.idx = 0xBCD;
+    machine.memory[0xBCD] = 0xC;
+    machine.memory[0xBCD + 1] = 4;
+    machine.memory[0xBCD + 2] = 123;
+    machine.memory[0xBCD + 3] = 98;
+    machine.memory[0xBCD + 4] = 12;
+    Opcode::try_from(0xF365).unwrap().execute(&mut machine);
+    // Should not touch the memory
+    let i = machine.idx as usize;
+    assert_eq!(machine.memory[i], 0xC);
+    assert_eq!(machine.memory[i + 1], 4);
+    assert_eq!(machine.memory[i + 2], 123);
+    assert_eq!(machine.memory[i + 3], 98);
+    assert_eq!(machine.memory[i + 4], 12);
+    assert_eq!(machine.memory[i + 5], 0);
+    // SHould not modify the index pointer
+    assert_eq!(machine.idx, 0xBCD);
+    // Should store the registers
+    assert_eq!(machine.register_get(0), 0xC);
+    assert_eq!(machine.register_get(1), 4);
+    assert_eq!(machine.register_get(2), 123);
+    assert_eq!(machine.register_get(3), 98);
+    assert_eq!(machine.register_get(4), 0);
     // Should increment program counter by two
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }

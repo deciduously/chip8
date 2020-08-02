@@ -376,8 +376,20 @@ impl Opcode {
                 machine.memory_set(machine.idx + 2, (reg_x % 100) % 10);
                 machine.next_opcode();
             }
-            DumpRegisters(x) => {}
-            FillRegisters(x) => {}
+            DumpRegisters(x) => {
+                let start_idx = machine.idx;
+                for i in 0..x + 1 {
+                    machine.memory_set(start_idx + i as u16, machine.register_get(i));
+                }
+                machine.next_opcode();
+            }
+            FillRegisters(x) => {
+                let start_idx = machine.idx;
+                for i in 0..x + 1 {
+                    machine.register_set(i, machine.memory_get(start_idx + i as u16));
+                }
+                machine.next_opcode();
+            }
         }
     }
 }
