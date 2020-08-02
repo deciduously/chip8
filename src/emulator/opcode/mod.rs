@@ -6,6 +6,9 @@ use super::machine::Machine;
 use anyhow::{anyhow, Result};
 use std::{convert::TryFrom, fmt};
 
+#[cfg(test)]
+mod test;
+
 /// Wrapper struct with some helper methods for working with u16 values
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RawOpcode(u16);
@@ -155,7 +158,7 @@ pub enum Opcode {
     JumpTo(u16),
     /// CXNN - Pick a random number 0-255 as r, set VX to (r & NN).  Carries (X, NN).
     Rand(u8, u8),
-    /// DXYN - Draw sprite at (VX, VY).  WIdth 8px, height Npx.
+    /// DXYN - Draw sprite at (VX, VY).  Width 8px, height Npx.
     /// Each row of 8px is read starting from location at the `idx` pointer, which doesn't change here.
     /// VF is set to 1 if any pixels are flipped from set to unset when the sprite is drawn, and 0 if not.
     /// Carries (X, Y, N).
@@ -175,7 +178,7 @@ pub enum Opcode {
     /// FX1E - Increment index pointer by VX.  Carries X.
     IncrementIdx(u8),
     /// FX29 - Set index pointer to the sprite address for the character in VX.
-    /// Hex digis 0-F are all stores as 4x5 glyphs.
+    /// Hex digis 0-F are all stored as 4x5 glyphs.
     /// Carries X.
     NewSprite(u8),
     /// FX33 - Store the binary-coded decimal representation of VX starting at the index pointer.
@@ -246,16 +249,37 @@ impl Opcode {
             MachineCall(addr) => {}
             ClearScreen => {}
             Return => {}
-            Jump(addr) => {}
+            Jump(addr) => machine.pc = addr,
             Call(addr) => {
                 // Store current location on the stack
                 machine.push_callsite();
                 // Jump to new location
                 machine.pc = addr;
             }
-            SkipIfEqVal(x, y) => {}
-            SkipIfNotEqVal(x, y) => {}
-            SkipIfMatchReg(x, y) => {}
+            SkipIfEqVal(x, y) => {
+                if machine.register_get(x) == y {
+                    // Extra advance
+                    machine.next_opcode();
+                }
+                // Always advance at least once
+                machine.next_opcode();
+            }
+            SkipIfNotEqVal(x, y) => {
+                if machine.register_get(x) != y {
+                    // Extra advance
+                    machine.next_opcode();
+                }
+                // Always advance at least once
+                machine.next_opcode();
+            }
+            SkipIfMatchReg(x, y) => {
+                if machine.register_get(x) == machine.register_get(y) {
+                    // Extra advance
+                    machine.next_opcode();
+                }
+                // Always advance at least once
+                machine.next_opcode();
+            }
             SetRegister(x, y) => {
                 machine.register_set(x, y);
                 machine.next_opcode();
@@ -343,9 +367,7 @@ impl Opcode {
                 machine.idx = addr;
                 machine.next_opcode();
             }
-            JumpTo(addr) => {
-                machine.pc = addr + machine.register_get(0) as u16;
-            }
+            JumpTo(addr) => machine.pc = addr + machine.register_get(0) as u16,
             Rand(x, mask) => {
                 let r = rand::random::<u8>();
                 machine.register_set(x, r & mask);
@@ -367,7 +389,10 @@ impl Opcode {
                 machine.sound_timer = machine.register_get(x);
                 machine.next_opcode();
             }
-            IncrementIdx(x) => {}
+            IncrementIdx(x) => {
+                machine.idx += machine.register_get(x) as u16;
+                machine.next_opcode();
+            }
             NewSprite(x) => {}
             BCD(x) => {
                 let reg_x = machine.register_get(x);

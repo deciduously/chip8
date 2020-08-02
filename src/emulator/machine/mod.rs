@@ -60,9 +60,9 @@ pub struct Machine {
     /// Sound timer - buzzes at 0.  60Hz, counts down if above 0\
     pub sound_timer: u8,
     /// Call stack
-    stack: [usize; STACK_SIZE],
+    pub stack: [usize; STACK_SIZE],
     /// Stack pointer
-    sp: usize,
+    pub sp: usize,
     /// Keep track of the keypad - 0x0-0xF
     key: [u8; NUM_KEYS],
 }
@@ -116,10 +116,14 @@ impl Machine {
             // If the draw flag is set, update the screen
             // Store key press state
         }
-        Ok(())
     }
 
     // PRIVATE/INTERNAL INTERFACE
+
+    /// Emit a beep
+    fn beep(&self) {
+        println!("BEEP!");
+    }
 
     /// Set the carry flag to off
     pub fn carry_off(&mut self) {
@@ -195,7 +199,7 @@ impl Machine {
     }
 
     /// Reset memory, registers, call stack for a new rom.
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.pc = PC_BEGIN;
         self.registers = [0; NUM_REGISTERS];
         self.memory = [0; MEM_SIZE];
@@ -217,6 +221,9 @@ impl Machine {
             self.delay_timer -= 1;
         }
         if self.sound_timer > 0 {
+            if self.sound_timer == 1 {
+                self.beep();
+            }
             self.sound_timer -= 1;
         }
     }
