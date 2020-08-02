@@ -309,7 +309,13 @@ impl Opcode {
                 }
                 machine.next_opcode();
             }
-            ShiftRight(x) => {}
+            ShiftRight(x) => {
+                let reg = machine.register_get(x);
+                // Set the carry flag according to LSB
+                machine.register_set(0xF, reg & 1);
+                machine.register_set(x, reg >> 1);
+                machine.next_opcode();
+            }
             FlippedSubAssign(x, y) => {
                 let reg_x = machine.register_get(x);
                 let reg_y = machine.register_get(y);
@@ -324,7 +330,14 @@ impl Opcode {
                 }
                 machine.next_opcode();
             }
-            ShiftLeft(x) => {}
+            ShiftLeft(x) => {
+                let reg = machine.register_get(x);
+                // Set the carry flag according to MSB
+                // Shift by seven (number of bits in the byte minus 1), then it's the LSB!
+                machine.register_set(0xF, reg >> (8 - 1) & 1);
+                machine.register_set(x, reg << 1);
+                machine.next_opcode();
+            }
             SkipIfMismatchReg(x, y) => {}
             SetIdx(addr) => {
                 machine.idx = addr;

@@ -213,6 +213,24 @@ fn test_opcode_8xy5_sub_assign_with_borrow() {
 }
 
 #[test]
+fn test_opcode_8xy6_shift_right() {
+    let mut machine = Machine::new();
+    // Seed registers - each is only one byte, so this will wrap over
+    machine.registers[0xB] = 0xA;
+    machine.registers[0xC] = 0xD;
+    Opcode::try_from(0x8BC6).unwrap().execute(&mut machine);
+
+    // Should store least significant bit of VX as the borrow flag
+    assert_eq!(machine.register_get(0xF), (0xA & 1));
+    // Should shift VX right 1
+    assert_eq!(machine.register_get(0xB), (0xA >> 1));
+    // Should not affect VY
+    assert_eq!(machine.register_get(0xC), 0xD);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
 fn test_opcode_8xy7_flipped_sub_assign() {
     let mut machine = Machine::new();
     // Seed registers
@@ -249,6 +267,24 @@ fn test_opcode_8xy7_flipped_sub_assign_with_borrow() {
 }
 
 #[test]
+fn test_opcode_8xye_shift_left() {
+    let mut machine = Machine::new();
+    // Seed registers - each is only one byte, so this will wrap over
+    machine.registers[0xB] = 0xA;
+    machine.registers[0xC] = 0xD;
+    Opcode::try_from(0x8BCE).unwrap().execute(&mut machine);
+
+    // Should store most significant bit of VX as the borrow flag
+    assert_eq!(machine.register_get(0xF), (0xA >> (8 - 1) & 1));
+    // Should shift VX left 1
+    assert_eq!(machine.register_get(0xB), (0xA << 1));
+    // Should not affect VY
+    assert_eq!(machine.register_get(0xC), 0xD);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
 fn test_opcode_annn_set_idx() {
     let mut machine = Machine::new();
     Opcode::try_from(0xABCD).unwrap().execute(&mut machine);
@@ -257,6 +293,9 @@ fn test_opcode_annn_set_idx() {
     // Should increment program counter by two
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }
+
+#[test]
+fn test_opcode_8xy9() {}
 
 #[test]
 fn test_opcode_fx33_bcd() {
