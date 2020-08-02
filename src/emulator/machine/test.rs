@@ -304,6 +304,29 @@ fn test_opcode_bnnn_jump_to() {
 }
 
 #[test]
+fn test_opcode_cxnn_rand() {
+    let mut machine = Machine::new();
+    machine.registers[0xA] = 4;
+    Opcode::try_from(0xCABA).unwrap().execute(&mut machine);
+    // Should have a new value in VX (even though it might sometimes end up the same :/)
+    // FIXME SeedableRng is what you want to do, probably
+    assert!(machine.register_get(0xA) != 4);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
+fn test_opcode_fx07_store_delay() {
+    let mut machine = Machine::new();
+    machine.registers[0xA] = 4;
+    Opcode::try_from(0xFA07).unwrap().execute(&mut machine);
+    // Should store the delay timer value in VX, which hasn't changed from the max since instatiation
+    assert_eq!(machine.register_get(0xA), 0xFF);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
+#[test]
 fn test_opcode_fx33_bcd() {
     let mut machine = Machine::new();
     machine.registers[0xB] = 195;

@@ -56,9 +56,9 @@ pub struct Machine {
     /// Graphics system - 2048 total pixels, arranged 64x32
     screen: [u8; TOTAL_PIXELS],
     /// Delay timer - 60Hz, counts down if above 0
-    delay_timer: u8,
+    pub delay_timer: u8,
     /// Sound timer - buzzes at 0.  60Hz, counts down if above 0\
-    sound_timer: u8,
+    pub sound_timer: u8,
     /// Call stack
     stack: [usize; STACK_SIZE],
     /// Stack pointer

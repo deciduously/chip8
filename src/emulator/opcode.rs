@@ -346,11 +346,18 @@ impl Opcode {
             JumpTo(addr) => {
                 machine.pc = addr + machine.register_get(0) as u16;
             }
-            Rand(x, mask) => {}
+            Rand(x, mask) => {
+                let r = rand::random::<u8>();
+                machine.register_set(x, r & mask);
+                machine.next_opcode();
+            }
             Draw(x, y, h) => {}
             SkipIfPressed(key) => {}
             SkipIfNotPressed(key) => {}
-            StoreDelay(x) => {}
+            StoreDelay(x) => {
+                machine.register_set(x, machine.delay_timer);
+                machine.next_opcode();
+            }
             WaitKey => {}
             SetDelay(x) => {}
             SetSound(x) => {}
