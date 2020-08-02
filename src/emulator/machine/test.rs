@@ -295,7 +295,13 @@ fn test_opcode_annn_set_idx() {
 }
 
 #[test]
-fn test_opcode_8xy9() {}
+fn test_opcode_bnnn_jump_to() {
+    let mut machine = Machine::new();
+    machine.registers[0] = 4;
+    Opcode::try_from(0xBCDE).unwrap().execute(&mut machine);
+    // Should advance to NNN plus V0
+    assert_eq!(machine.pc, 0xCDE + 4);
+}
 
 #[test]
 fn test_opcode_fx33_bcd() {
@@ -307,4 +313,6 @@ fn test_opcode_fx33_bcd() {
     assert_eq!(machine.memory[0xAB], 1);
     assert_eq!(machine.memory[0xAB + 1], 9);
     assert_eq!(machine.memory[0xAB + 2], 5);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
 }

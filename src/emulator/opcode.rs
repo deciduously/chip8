@@ -343,7 +343,9 @@ impl Opcode {
                 machine.idx = addr;
                 machine.next_opcode();
             }
-            JumpTo(addr) => {}
+            JumpTo(addr) => {
+                machine.pc = addr + machine.register_get(0) as u16;
+            }
             Rand(x, mask) => {}
             Draw(x, y, h) => {}
             SkipIfPressed(key) => {}
