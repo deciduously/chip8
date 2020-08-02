@@ -359,7 +359,10 @@ impl Opcode {
                 machine.next_opcode();
             }
             WaitKey => {}
-            SetDelay(x) => {}
+            SetDelay(x) => {
+                machine.delay_timer = machine.register_get(x);
+                machine.next_opcode();
+            }
             SetSound(x) => {}
             IncrementIdx(x) => {}
             NewSprite(x) => {}
