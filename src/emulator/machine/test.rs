@@ -327,7 +327,7 @@ fn test_opcode_fx07_store_delay() {
 }
 
 #[test]
-fn test_opcode_fx15_store_delay() {
+fn test_opcode_fx15_set_delay() {
     let mut machine = Machine::new();
     machine.registers[0xA] = 4;
     Opcode::try_from(0xFA15).unwrap().execute(&mut machine);
@@ -336,6 +336,18 @@ fn test_opcode_fx15_store_delay() {
     // Should increment program counter by two
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }
+
+#[test]
+fn test_opcode_fx18_set_sound() {
+    let mut machine = Machine::new();
+    machine.registers[0xA] = 4;
+    Opcode::try_from(0xFA18).unwrap().execute(&mut machine);
+    // Should set the sound timer value in VX
+    assert_eq!(machine.sound_timer, 4);
+    // Should increment program counter by two
+    assert_eq!(machine.pc, PC_BEGIN + 2);
+}
+
 
 #[test]
 fn test_opcode_fx33_bcd() {

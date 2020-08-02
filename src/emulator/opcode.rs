@@ -363,7 +363,10 @@ impl Opcode {
                 machine.delay_timer = machine.register_get(x);
                 machine.next_opcode();
             }
-            SetSound(x) => {}
+            SetSound(x) => {
+                machine.sound_timer = machine.register_get(x);
+                machine.next_opcode();
+            }
             IncrementIdx(x) => {}
             NewSprite(x) => {}
             BCD(x) => {
