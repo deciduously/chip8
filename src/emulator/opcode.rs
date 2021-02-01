@@ -2,12 +2,8 @@
 //!
 //! Largely written by staring at [the Chip8 Wikipedia article](https://en.wikipedia.org/wiki/CHIP-8#Opcode_table) for a while.
 
-use super::machine::Machine;
 use anyhow::{anyhow, Result};
 use std::{convert::TryFrom, fmt};
-
-#[cfg(test)]
-mod test;
 
 /// Wrapper struct with some helper methods for working with u16 values
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -169,8 +165,8 @@ pub enum Opcode {
     SkipIfNotPressed(u8),
     /// FX07 - Set VX to the value of the delay timer.  Carries X.
     StoreDelay(u8),
-    /// FX0A - Block until keypress, store key pressed to V0.
-    WaitKey,
+    /// FX0A - Block until keypress, store key pressed to VX.  Carries X.
+    WaitKey(u8),
     /// FX15 - Set delay timer to VX.  Carries X.
     SetDelay(u8),
     /// FX18 - Set sound timer to VX.  Carries X.
@@ -178,7 +174,7 @@ pub enum Opcode {
     /// FX1E - Increment index pointer by VX.  Carries X.
     IncrementIdx(u8),
     /// FX29 - Set index pointer to the sprite address for the character in VX.
-    /// Hex digis 0-F are all stored as 4x5 glyphs.
+    /// Hex digits 0-F are all stored as 4x5 glyphs.
     /// Carries X.
     NewSprite(u8),
     /// FX33 - Store the binary-coded decimal representation of VX starting at the index pointer.
@@ -219,11 +215,11 @@ impl Opcode {
     /// assert_eq!(Opcode::new(0xAF, 0xAB).unwrap(), Opcode::SetIdx(0xFAB));
     /// assert_eq!(Opcode::new(0xBF, 0xAB).unwrap(), Opcode::JumpTo(0xFAB));
     /// assert_eq!(Opcode::new(0xCF, 0xAB).unwrap(), Opcode::Rand(0xF, 0xAB));
-    /// assert_eq!(Opcode::new(0xD9, 0xAF).unwrap(), Opcode::Draw(9, 0xA, 0xF));
+    /// assert_eq!(Opcode::new(0xD0, 0x03).unwrap(), Opcode::Draw(0, 0, 3));
     /// assert_eq!(Opcode::new(0xEB, 0x9E).unwrap(), Opcode::SkipIfPressed(0xB));
     /// assert_eq!(Opcode::new(0xEB, 0xA1).unwrap(), Opcode::SkipIfNotPressed(0xB));
     /// assert_eq!(Opcode::new(0xFB, 0x07).unwrap(), Opcode::StoreDelay(0xB));
-    /// assert_eq!(Opcode::new(0xFB, 0x0A).unwrap(), Opcode::WaitKey);
+    /// assert_eq!(Opcode::new(0xFB, 0x0A).unwrap(), Opcode::WaitKey(0xB));
     /// assert_eq!(Opcode::new(0xFB, 0x15).unwrap(), Opcode::SetDelay(0xB));
     /// assert_eq!(Opcode::new(0xFB, 0x18).unwrap(), Opcode::SetSound(0xB));
     /// assert_eq!(Opcode::new(0xFB, 0x1E).unwrap(), Opcode::IncrementIdx(0xB));
@@ -241,187 +237,11 @@ impl Opcode {
     pub fn new(first: u8, second: u8) -> Result<Self> {
         Ok(Self::try_from(RawOpcode::new(first, second))?)
     }
-
-    /// Apply this opcode to a machine instance
-    pub fn execute(&self, machine: &mut Machine) {
-        use Opcode::*;
-        match *self {
-            MachineCall(addr) => {}
-            ClearScreen => {}
-            Return => {}
-            Jump(addr) => machine.pc = addr,
-            Call(addr) => {
-                // Store current location on the stack
-                machine.push_callsite();
-                // Jump to new location
-                machine.pc = addr;
-            }
-            SkipIfEqVal(x, y) => {
-                if machine.register_get(x) == y {
-                    // Extra advance
-                    machine.next_opcode();
-                }
-                // Always advance at least once
-                machine.next_opcode();
-            }
-            SkipIfNotEqVal(x, y) => {
-                if machine.register_get(x) != y {
-                    // Extra advance
-                    machine.next_opcode();
-                }
-                // Always advance at least once
-                machine.next_opcode();
-            }
-            SkipIfMatchReg(x, y) => {
-                if machine.register_get(x) == machine.register_get(y) {
-                    // Extra advance
-                    machine.next_opcode();
-                }
-                // Always advance at least once
-                machine.next_opcode();
-            }
-            SetRegister(x, y) => {
-                machine.register_set(x, y);
-                machine.next_opcode();
-            }
-            Add(x, y) => {
-                machine.register_set(x, machine.register_get(x) + y);
-                machine.next_opcode();
-            }
-            Assign(x, y) => {
-                machine.register_set(x, machine.register_get(y));
-                machine.next_opcode();
-            }
-            AssignOr(x, y) => {
-                machine.register_set(x, machine.register_get(y) | machine.register_get(x));
-                machine.next_opcode();
-            }
-            AssignAnd(x, y) => {
-                machine.register_set(x, machine.register_get(y) & machine.register_get(x));
-                machine.next_opcode();
-            }
-            AssignXor(x, y) => {
-                machine.register_set(x, machine.register_get(y) ^ machine.register_get(x));
-                machine.next_opcode();
-            }
-            AddAssign(x, y) => {
-                let reg_x = machine.register_get(x);
-                let reg_y = machine.register_get(y);
-
-                // Check if the addition will overflow a byte, set carry flag and VX accordingly
-                let headroom = 0xFF - reg_x;
-                if reg_y > headroom {
-                    machine.carry_on();
-                    machine.register_set(x, reg_y - headroom);
-                } else {
-                    machine.carry_off();
-                    machine.register_set(x, reg_x + reg_y);
-                }
-                machine.next_opcode();
-            }
-            SubAssign(x, y) => {
-                let reg_x = machine.register_get(x);
-                let reg_y = machine.register_get(y);
-
-                // Check if the addition will drop below zero, set carry flag and VX accordingly
-                if reg_y as i16 - reg_x as i16 > 0 {
-                    machine.carry_off(); // When it's a borrow, we set it to 0 subtract from the max byte
-                    machine.register_set(x, 0xFF - (reg_y - reg_x - 1));
-                } else {
-                    machine.carry_on();
-                    machine.register_set(x, reg_x - reg_y);
-                }
-                machine.next_opcode();
-            }
-            ShiftRight(x) => {
-                let reg = machine.register_get(x);
-                // Set the carry flag according to LSB
-                machine.register_set(0xF, reg & 1);
-                machine.register_set(x, reg >> 1);
-                machine.next_opcode();
-            }
-            FlippedSubAssign(x, y) => {
-                let reg_x = machine.register_get(x);
-                let reg_y = machine.register_get(y);
-
-                // Check if the addition will drop below zero, set carry flag and VX accordingly
-                if reg_x as i16 - reg_y as i16 > 0 {
-                    machine.carry_off(); // When it's a borrow, we set it to 0 subtract from the max byte
-                    machine.register_set(x, 0xFF - (reg_x - reg_y - 1));
-                } else {
-                    machine.carry_on();
-                    machine.register_set(x, reg_y - reg_x);
-                }
-                machine.next_opcode();
-            }
-            ShiftLeft(x) => {
-                let reg = machine.register_get(x);
-                // Set the carry flag according to MSB
-                // Shift by seven (number of bits in the byte minus 1), then it's the LSB!
-                machine.register_set(0xF, reg >> (8 - 1) & 1);
-                machine.register_set(x, reg << 1);
-                machine.next_opcode();
-            }
-            SkipIfMismatchReg(x, y) => {}
-            SetIdx(addr) => {
-                machine.idx = addr;
-                machine.next_opcode();
-            }
-            JumpTo(addr) => machine.pc = addr + machine.register_get(0) as u16,
-            Rand(x, mask) => {
-                let r = rand::random::<u8>();
-                machine.register_set(x, r & mask);
-                machine.next_opcode();
-            }
-            Draw(x, y, h) => {}
-            SkipIfPressed(key) => {}
-            SkipIfNotPressed(key) => {}
-            StoreDelay(x) => {
-                machine.register_set(x, machine.delay_timer);
-                machine.next_opcode();
-            }
-            WaitKey => {}
-            SetDelay(x) => {
-                machine.delay_timer = machine.register_get(x);
-                machine.next_opcode();
-            }
-            SetSound(x) => {
-                machine.sound_timer = machine.register_get(x);
-                machine.next_opcode();
-            }
-            IncrementIdx(x) => {
-                machine.idx += machine.register_get(x) as u16;
-                machine.next_opcode();
-            }
-            NewSprite(x) => {}
-            BCD(x) => {
-                let reg_x = machine.register_get(x);
-                machine.memory_set(machine.idx, reg_x / 100);
-                machine.memory_set(machine.idx + 1, (reg_x / 10) % 10);
-                machine.memory_set(machine.idx + 2, (reg_x % 100) % 10);
-                machine.next_opcode();
-            }
-            DumpRegisters(x) => {
-                let start_idx = machine.idx;
-                for i in 0..x + 1 {
-                    machine.memory_set(start_idx + i as u16, machine.register_get(i));
-                }
-                machine.next_opcode();
-            }
-            FillRegisters(x) => {
-                let start_idx = machine.idx;
-                for i in 0..x + 1 {
-                    machine.register_set(i, machine.memory_get(start_idx + i as u16));
-                }
-                machine.next_opcode();
-            }
-        }
-    }
 }
 
 impl Default for Opcode {
     fn default() -> Self {
-        Opcode::WaitKey
+        Opcode::WaitKey(0)
     }
 }
 
@@ -502,7 +322,7 @@ impl TryFrom<RawOpcode> for Opcode {
                 let r = raw.hex_digit_from_left(1);
                 match (raw.hex_digit_from_left(2), raw.hex_digit_from_left(3)) {
                     (0, 7) => Ok(StoreDelay(r)),
-                    (0, 0xA) => Ok(WaitKey),
+                    (0, 0xA) => Ok(WaitKey(r)),
                     (1, 5) => Ok(SetDelay(r)),
                     (1, 8) => Ok(SetSound(r)),
                     (1, 0xE) => Ok(IncrementIdx(r)),

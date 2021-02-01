@@ -10,11 +10,52 @@ license = "BSD-3-Clause"
 keywords = ["emulators", "games", "toy", "wasm"]
 categories = ["emulators", "games"]
 
+[lib]
+bench = false
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "native"
+required-features = ["sdl"]
+
+[features]
+
+default = ["wasm"]
+
+# The native SDL renderer is feature gated
+sdl = ["rand", "sdl2", "structopt"]
+
+# So is WebAssembly.  Users should specify which to build.
+wasm = ["web-sys"]
+
 [dependencies]
 
 anyhow = "1.0"
+lazy_static = "1.4"
 hex = "0.4"
-rand = "0.7"
+
+[dependencies.rand]
+
+version = "0.8"
+optional = true
+
+[dependencies.sdl2]
+
+version = "0.34"
+optional = true
+default-features = false
+features = ["image","gfx","mixer"]
+
+[dependencies.structopt]
+
+version = "0.3"
+optional = true
+default-features = false
+
+[dependencies.web-sys]
+
+version = "0.3"
+optional = true
 
 [dev-dependencies]
 

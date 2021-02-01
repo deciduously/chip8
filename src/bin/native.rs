@@ -1,24 +1,24 @@
 use anyhow::Result;
-use chip8::Machine;
+use chip8::{Machine, SdlContext};
+use structopt::*;
 
-fn init_renderer() {
-    // TODO
-}
-
-fn init_input() {
-    // TODO
-}
-
-fn init() {
-    init_renderer();
-    init_input();
+#[derive(Debug, StructOpt)]
+struct Opt {
+    // /// Activate debug mode
+    // #[structopt(short, long)]
+    // debug: bool
+    /// The name of the rom to load, lower-case
+    #[structopt(short, long, default_value = "test_opcode")]
+    rom_name: String,
 }
 
 fn main() -> Result<()> {
-    init();
+    let opt = Opt::from_args();
 
-    let mut machine = Machine::new();
-    machine.load_game("pong")?;
+    // Init context
+    let context = SdlContext::new(15);
+    let mut machine = Machine::new(context);
+    machine.load_game(&opt.rom_name)?;
     if let Err(e) = machine.run() {
         eprintln!("Error: {}", e);
     }
