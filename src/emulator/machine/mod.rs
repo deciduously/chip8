@@ -7,11 +7,10 @@ use std::time::Duration;
 #[cfg(test)]
 use std::convert::TryFrom;
 
-mod context;
 #[cfg(test)]
 mod test;
 
-pub use context::*;
+use context::Context;
 
 /// Total memory available.
 const MEM_SIZE: usize = 4096;
@@ -20,21 +19,26 @@ const NUM_REGISTERS: usize = 16;
 /// Keypad size.
 const NUM_KEYS: usize = 16;
 /// Screen height.
-const PIXEL_ROWS: u32 = 32;
+pub const PIXEL_ROWS: u32 = 32;
 /// Screen width.
-const PIXEL_COLS: u32 = 64;
+pub const PIXEL_COLS: u32 = 64;
 /// Call stack depth.
 const STACK_SIZE: usize = 16;
+/// Starting memory location for the program to run - earlier cells are machine-reserved.
+const PC_BEGIN: u16 = 0x200;
+
 /// Helper const for the total number of screen pixels.
 const TOTAL_PIXELS: u32 = PIXEL_COLS * PIXEL_ROWS;
 
 /// The pixel array
-type Screen = [u8; TOTAL_PIXELS as usize];
-const BLANK_SCREEN: Screen = [0; TOTAL_PIXELS as usize];
+pub type Screen = [u8; TOTAL_PIXELS as usize];
+pub const BLANK_SCREEN: Screen = [0; TOTAL_PIXELS as usize];
+
+// TODO constant accessor for Screen??
 
 /// The key state array
-type Keys = [bool; NUM_KEYS];
-const FRESH_KEYS: Keys = [false; NUM_KEYS];
+pub type Keys = [bool; NUM_KEYS];
+pub const FRESH_KEYS: Keys = [false; NUM_KEYS];
 
 /// Helper to map a keyboard key to a hex key
 ///
@@ -208,7 +212,7 @@ impl Machine {
 
     /// Emit a beep
     fn beep(&self) {
-        println!("BEEP!");
+        self.context.beep();
     }
 
     /// Set the carry flag to off

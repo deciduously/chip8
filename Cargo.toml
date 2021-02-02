@@ -20,13 +20,13 @@ required-features = ["sdl"]
 
 [features]
 
-default = ["wasm"]
+default = []
 
 # The native SDL renderer is feature gated
 sdl = ["rand", "sdl2", "structopt"]
 
 # So is WebAssembly.  Users should specify which to build.
-wasm = ["web-sys"]
+wasm = ["wasm-bindgen", "web-sys"]
 
 [dependencies]
 
@@ -52,10 +52,19 @@ version = "0.3"
 optional = true
 default-features = false
 
+[dependencies.wasm-bindgen]
+
+version = "0.2"
+optional = true
+
 [dependencies.web-sys]
 
 version = "0.3"
 optional = true
+features = [
+    "Document",
+    "Window"
+]
 
 [dev-dependencies]
 

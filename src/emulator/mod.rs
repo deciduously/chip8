@@ -1,9 +1,10 @@
 //! The Chip8 machine itself
 
-pub mod machine;
-pub mod opcode;
+mod context;
+mod machine;
+mod opcode;
 
-// Constants
-
-/// Starting memory location for the program to run - earlier cells are machine-reserved.
-const PC_BEGIN: u16 = 0x200;
+#[cfg(feature = "sdl")]
+pub use context::SdlContext;
+pub use machine::Machine;
+pub use opcode::*;

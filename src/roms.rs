@@ -5,15 +5,11 @@ use std::collections::HashMap;
 lazy_static! {
     pub static ref ROMS: HashMap<String, Vec<u8>> = {
         let mut ret = HashMap::new();
-        ret.insert("test_opcode".to_string(), include_bytes!("games/TEST_OPCODE.ch8").to_vec());
         ret.insert("15puzzle".to_string(), include_bytes!("games/15PUZZLE.ch8").to_vec());
+        ret.insert("bc_test".to_string(), include_bytes!("games/BC_TEST.ch8").to_vec());
         ret.insert("blinky".to_string(), include_bytes!("games/BLINKY.ch8").to_vec());
         ret.insert("blitz".to_string(), include_bytes!("games/BLITZ.ch8").to_vec());
         ret.insert("brix".to_string(), include_bytes!("games/BRIX.ch8").to_vec());
-        ret.insert("pong".to_string(), include_bytes!("games/PONG.ch8").to_vec());
-        ret.insert("tank".to_string(), include_bytes!("games/TANK.ch8").to_vec());
-        ret.insert("test2".to_string(), include_bytes!("games/TEST2.ch8").to_vec());
-        ret.insert("randtest".to_string(), include_bytes!("games/RANDTEST.ch8").to_vec());
         ret.insert("connect4".to_string(), include_bytes!("games/CONNECT4.ch8").to_vec());
         ret.insert("guess".to_string(), include_bytes!("games/GUESS.ch8").to_vec());
         ret.insert("hidden".to_string(), include_bytes!("games/HIDDEN.ch8").to_vec());
@@ -22,16 +18,20 @@ lazy_static! {
         ret.insert("maze".to_string(), include_bytes!("games/MAZE.ch8").to_vec());
         ret.insert("merlin".to_string(), include_bytes!("games/MERLIN.ch8").to_vec());
         ret.insert("missile".to_string(), include_bytes!("games/MISSILE.ch8").to_vec());
+        ret.insert("pong".to_string(), include_bytes!("games/PONG.ch8").to_vec());
         ret.insert("pong2".to_string(), include_bytes!("games/PONG2.ch8").to_vec());
         ret.insert("puzzle".to_string(), include_bytes!("games/PUZZLE.ch8").to_vec());
+        ret.insert("randtest".to_string(), include_bytes!("games/RANDTEST.ch8").to_vec());
         ret.insert("syzygy".to_string(), include_bytes!("games/SYZYGY.ch8").to_vec());
+        ret.insert("tank".to_string(), include_bytes!("games/TANK.ch8").to_vec());
+        ret.insert("test2".to_string(), include_bytes!("games/TEST2.ch8").to_vec());
+        ret.insert("test_opcode".to_string(), include_bytes!("games/TEST_OPCODE.ch8").to_vec());
         ret.insert("tetris".to_string(), include_bytes!("games/TETRIS.ch8").to_vec());
         ret.insert("tictac".to_string(), include_bytes!("games/TICTAC.ch8").to_vec());
         ret.insert("ufo".to_string(), include_bytes!("games/UFO.ch8").to_vec());
         ret.insert("vbrix".to_string(), include_bytes!("games/VBRIX.ch8").to_vec());
         ret.insert("vers".to_string(), include_bytes!("games/VERS.ch8").to_vec());
         ret.insert("wipeoff".to_string(), include_bytes!("games/WIPEOFF.ch8").to_vec());
-        ret.insert("bc_test".to_string(), include_bytes!("games/BC_TEST.ch8").to_vec());
     ret
     };
 }

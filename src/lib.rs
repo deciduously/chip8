@@ -1,10 +1,10 @@
 //! A Chip8 VM as a library
 
-pub mod emulator;
+mod emulator;
 mod roms;
-pub use emulator::machine::*;
 
+pub use emulator::{Machine, Opcode, RawOpcode};
 pub use roms::ROMS;
 
-#[cfg(test)]
-pub use emulator::machine::TestContext;
+#[cfg(feature = "sdl")]
+pub use emulator::SdlContext;
