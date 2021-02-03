@@ -182,4 +182,8 @@ impl Context for SdlContext {
     fn random_byte(&self) -> u8 {
         rand::random::<u8>()
     }
+
+    //fn sleep(&self, millis: u64) {
+    //    std::thread::sleep(Duration::from_millis(millis));
+    //}
 }

@@ -28,10 +28,14 @@ pub trait Context {
     fn get_key_state(&self) -> Keys;
     /// Get a random byte
     fn random_byte(&self) -> u8;
+    ///// Sleep for a number of milliseconds
+    //fn sleep(&self, millis: u64);
 }
 
 #[cfg(test)]
 mod test {
+    use std::time::Duration;
+
     use super::*;
 
     /// A test context that doesn't actually hook up to anything.
@@ -57,5 +61,8 @@ mod test {
         fn random_byte(&self) -> u8 {
             0x0
         }
+        //fn sleep(&self, millis: u64) {
+        //    std::thread::sleep(Duration::from_millis(millis));
+        //}
     }
 }

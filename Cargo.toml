@@ -26,13 +26,23 @@ default = []
 sdl = ["rand", "sdl2", "structopt"]
 
 # So is WebAssembly.  Users should specify which to build.
-wasm = ["wasm-bindgen", "web-sys"]
+wasm = ["console_error_panic_hook","js-sys", "wasm-bindgen", "web-sys"]
 
 [dependencies]
 
 anyhow = "1.0"
 lazy_static = "1.4"
 hex = "0.4"
+
+[dependencies.console_error_panic_hook]
+
+version = "0.1"
+optional = true
+
+[dependencies.js-sys]
+
+version = "0.3"
+optional = true
 
 [dependencies.rand]
 
@@ -64,13 +74,14 @@ optional = true
 features = [
     "Attr",
     "CanvasRenderingContext2d",
+    "console",
     "Document",
     "Element",
     "Event",
     "EventTarget",
     "HtmlCanvasElement",
     "HtmlElement",
-    "HtmlInputElement",
+    "HtmlSelectElement",
     "Node",
     "Text",
     "Window"

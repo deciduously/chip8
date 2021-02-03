@@ -188,9 +188,11 @@ impl Machine {
             // Handle any events, quit if signaled
             if self.context.listen_for_input() {
                 println!("Quitting...");
+                // TODO cfg(feature = "wasm") logging
                 break;
             }
-            std::thread::sleep(Duration::from_micros(1000));
+            // TODO how to pause???
+            //self.context.sleep(1);
             //dbg!(self.keys_pressed_str());
 
             self.cycle()?;
@@ -249,22 +251,6 @@ impl Machine {
         // Decrement timers if needed
         self.update_timers();
         Ok(())
-    }
-
-    /// Render a string for the console
-    #[allow(dead_code)]
-    fn debug_render(&self) {
-        for y in 0..PIXEL_ROWS {
-            for x in 0..PIXEL_COLS {
-                if self.screen[((y * PIXEL_COLS) + x) as usize] == 0 {
-                    print!("0");
-                } else {
-                    print!(" ");
-                }
-            }
-            println!();
-        }
-        println!();
     }
 
     /// Execute the current opcode
