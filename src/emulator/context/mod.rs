@@ -5,7 +5,7 @@ use super::machine::*;
 mod sdl;
 
 #[cfg(feature = "wasm")]
-mod wasm;
+pub mod wasm;
 
 #[cfg(feature = "sdl")]
 pub use sdl::SdlContext;

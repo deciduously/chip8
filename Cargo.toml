@@ -62,7 +62,17 @@ optional = true
 version = "0.3"
 optional = true
 features = [
+    "Attr",
+    "CanvasRenderingContext2d",
     "Document",
+    "Element",
+    "Event",
+    "EventTarget",
+    "HtmlCanvasElement",
+    "HtmlElement",
+    "HtmlInputElement",
+    "Node",
+    "Text",
     "Window"
 ]
 
