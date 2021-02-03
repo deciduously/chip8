@@ -84,6 +84,13 @@ fn mount_app(document: &Document, body: &HtmlElement) -> Result<()> {
     append_text_element_attrs!(document, body, "h1", "CHIP-8",);
     mount_controls(&document, &body)?;
     append_text_element_attrs!(document, body, "pre", INSTRUCTIONS,);
+    append_text_element_attrs!(
+        document,
+        body,
+        "a",
+        "source",
+        ("href", "https://github.com/deciduously/chip8")
+    );
     Ok(())
 }
 
