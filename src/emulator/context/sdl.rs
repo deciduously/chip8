@@ -126,7 +126,7 @@ impl Context for SdlContext {
             })
             .unwrap();
         device.resume();
-        std::thread::sleep(Duration::from_millis(25));
+        self.sleep(25);
     }
     fn listen_for_input(&mut self) -> bool {
         for event in self.event_pump.poll_iter() {
@@ -183,7 +183,7 @@ impl Context for SdlContext {
         rand::random::<u8>()
     }
 
-    //fn sleep(&self, millis: u64) {
-    //    std::thread::sleep(Duration::from_millis(millis));
-    //}
+    fn sleep(&self, millis: u64) {
+        std::thread::sleep(Duration::from_millis(millis));
+    }
 }

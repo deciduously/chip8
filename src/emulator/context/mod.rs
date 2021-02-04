@@ -28,8 +28,8 @@ pub trait Context {
     fn get_key_state(&self) -> Keys;
     /// Get a random byte
     fn random_byte(&self) -> u8;
-    ///// Sleep for a number of milliseconds
-    //fn sleep(&self, millis: u64);
+    /// Sleep for a number of milliseconds
+    fn sleep(&self, millis: u64);
 }
 
 #[cfg(test)]
@@ -61,8 +61,8 @@ mod test {
         fn random_byte(&self) -> u8 {
             0x0
         }
-        //fn sleep(&self, millis: u64) {
-        //    std::thread::sleep(Duration::from_millis(millis));
-        //}
+        fn sleep(&self, millis: u64) {
+            std::thread::sleep(Duration::from_millis(millis));
+        }
     }
 }

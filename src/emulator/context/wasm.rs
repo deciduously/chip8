@@ -5,7 +5,7 @@ use console_error_panic_hook::set_once;
 use js_sys::Math::{floor, random};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{console::error_2, Document, Element, HtmlElement};
+use web_sys::{Document, Element, HtmlElement};
 
 type Result<T> = std::result::Result<T, JsValue>;
 
@@ -143,16 +143,13 @@ fn update_all() -> Result<()> {
     Ok(())
 }
 
-// draw dot
+// draw screen
 fn update_canvas(document: &Document, screen: Screen) -> Result<()> {
     // grab canvas
     let canvas = document
         .get_element_by_id("chip8-canvas")
         .unwrap()
         .dyn_into::<web_sys::HtmlCanvasElement>()?;
-    // resize canvas to size * 2
-    // TODO slider for scale facotr, a la wasm-dot?
-    let scale_factor = 10.0;
     let context = canvas
         .get_context("2d")?
         .unwrap()
@@ -160,11 +157,17 @@ fn update_canvas(document: &Document, screen: Screen) -> Result<()> {
 
     // draw
 
-    context.set_fill_style(&JsValue::from_str("black"));
-    context.clear_rect(0.0, 0.0, canvas.width().into(), canvas.height().into());
+    let w = canvas.width().into();
+    let h = canvas.height().into();
 
+    context.clear_rect(0.0, 0.0, w, h);
+    context.set_fill_style(&JsValue::from_str("black"));
+    context.fill_rect(0.0, 0.0, w, h);
+
+    context.begin_path();
     // For pixel in screen
-    context.scale(scale_factor, scale_factor)?;
+    // TODO this would be faster as imgdata
+    // https://rustwasm.github.io/wasm-bindgen/examples/julia.html
     context.set_fill_style(&JsValue::from_str("white"));
     for y in 0..PIXEL_ROWS {
         for x in 0..PIXEL_COLS {
@@ -174,6 +177,7 @@ fn update_canvas(document: &Document, screen: Screen) -> Result<()> {
             }
         }
     }
+    context.stroke();
     Ok(())
 }
 
@@ -207,10 +211,6 @@ pub struct WasmContext {
 
 impl WasmContext {
     pub fn new() -> Box<Self> {
-        let document = get_document().unwrap();
-        let body = document.body().unwrap();
-        mount_app(&document, &body).unwrap();
-        attach_listener(&document).unwrap();
         Box::new(Self {
             key_state: FRESH_KEYS,
         })
@@ -227,9 +227,19 @@ impl Context for WasmContext {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .unwrap();
         // TODO slider for scale factor, a la wasm-dot?
-        let scale_factor = 10;
+        let scale_factor = 15;
         canvas.set_width(PIXEL_COLS * scale_factor);
         canvas.set_height(PIXEL_ROWS * scale_factor);
+        let context = canvas
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .unwrap();
+        context
+            .scale(scale_factor as f64, scale_factor as f64)
+            .unwrap();
+        log!("Finished init");
     }
     fn beep(&self) {}
     fn listen_for_input(&mut self) -> bool {
@@ -245,23 +255,49 @@ impl Context for WasmContext {
     fn random_byte(&self) -> u8 {
         floor(random() * floor(255.0)) as u8
     }
+    fn sleep(&self, millis: u64) {
+        // TODO this is hacky, maybe try to actually use the Promise from setTimeout()
+        // It also just straight-up don't work
+        use js_sys::Date;
+        let date = Date::now();
+        let mut current_date = date;
+
+        while current_date - date < millis as f64 {
+            current_date = Date::now();
+        }
+    }
+}
+
+/// Mount the DOM necessary to host the app
+#[wasm_bindgen]
+pub fn mount() {
+    set_once(); // console_error_panic_hook
+    let document = get_document().unwrap();
+    let body = document.body().unwrap();
+    mount_app(&document, &body).unwrap();
+    attach_listener(&document).unwrap();
 }
 
 #[wasm_bindgen]
 pub fn run() {
-    // init conosle_error_panic_hook
-    set_once();
-    // get document, get body, init machine, etc
-    // this is the WASM "main"
     // TODO we need to store page sate somewhere.  GOtta be able to talk to the machine better.
     let context = WasmContext::new();
     let mut machine = Machine::new(context);
-    // TODO get from webpage, which should present a list of options
+    // TODO get from DOM select element
     machine
-        .load_game("test_opcode")
+        .load_game("maze")
         .expect("Could not load rom");
-    log!("Loaded test_opcode");
-    if let Err(e) = machine.run() {
-        error!("Error: {}", e);
-    }
+
+    let callback = Closure::wrap(Box::new(move || {
+        if let Err(e) = machine.step() {
+            error!("Error: {}", e);
+        }
+    }) as Box<dyn FnMut()>);
+
+    web_sys::window().unwrap().set_interval_with_callback_and_timeout_and_arguments_0(
+        callback.as_ref().unchecked_ref(),
+        1
+    ).unwrap();
+
+    callback.forget();
 }

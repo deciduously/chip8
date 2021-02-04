@@ -10,4 +10,4 @@ pub use roms::ROMS;
 pub use emulator::SdlContext;
 
 #[cfg(feature = "wasm")]
-pub use emulator::wasm::run;
+pub use emulator::wasm::{mount, run};

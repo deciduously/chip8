@@ -19,8 +19,6 @@ fn main() -> Result<()> {
     let context = SdlContext::new(15);
     let mut machine = Machine::new(context);
     machine.load_game(&opt.rom_name)?;
-    if let Err(e) = machine.run() {
-        eprintln!("Error: {}", e);
-    }
+    machine.run();
     Ok(())
 }
