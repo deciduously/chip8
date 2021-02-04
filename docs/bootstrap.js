@@ -160,9 +160,6 @@
 /******/ 					"__wbg_newnoargs_ab5e899738c0eff4": function(p0i32,p1i32) {
 /******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_newnoargs_ab5e899738c0eff4"](p0i32,p1i32);
 /******/ 					},
-/******/ 					"__wbg_now_c110383288150953": function() {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_now_c110383288150953"]();
-/******/ 					},
 /******/ 					"__wbg_self_77eca7b42660e1bb": function() {
 /******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_self_77eca7b42660e1bb"]();
 /******/ 					},
@@ -199,11 +196,11 @@
 /******/ 					"__wbindgen_throw": function(p0i32,p1i32) {
 /******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbindgen_throw"](p0i32,p1i32);
 /******/ 					},
-/******/ 					"__wbindgen_closure_wrapper104": function(p0i32,p1i32,p2i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbindgen_closure_wrapper104"](p0i32,p1i32,p2i32);
+/******/ 					"__wbindgen_closure_wrapper101": function(p0i32,p1i32,p2i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbindgen_closure_wrapper101"](p0i32,p1i32,p2i32);
 /******/ 					},
-/******/ 					"__wbindgen_closure_wrapper106": function(p0i32,p1i32,p2i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbindgen_closure_wrapper106"](p0i32,p1i32,p2i32);
+/******/ 					"__wbindgen_closure_wrapper103": function(p0i32,p1i32,p2i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbindgen_closure_wrapper103"](p0i32,p1i32,p2i32);
 /******/ 					}
 /******/ 				}
 /******/ 			};
@@ -306,7 +303,7 @@
 /******/ 				promises.push(installedWasmModuleData);
 /******/ 			else {
 /******/ 				var importObject = wasmImportObjects[wasmModuleId]();
-/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/chip8_bg.wasm":"abe183a3c735a3223b07"}[wasmModuleId] + ".module.wasm");
+/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/chip8_bg.wasm":"8ed8e1e641c7a516b499"}[wasmModuleId] + ".module.wasm");
 /******/ 				var promise;
 /******/ 				if(importObject instanceof Promise && typeof WebAssembly.compileStreaming === 'function') {
 /******/ 					promise = Promise.all([WebAssembly.compileStreaming(req), importObject]).then(function(items) {

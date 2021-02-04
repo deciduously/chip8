@@ -202,7 +202,10 @@ impl Machine {
             println!("Quitting...");
             return Ok(true);
         }
+        // Only sleep if we're using native renderers.  WASM handles this on its own.
+        #[cfg(not(feature = "wasm"))]
         self.context.sleep(2);
+
         //dbg!(self.keys_pressed_str());
         self.cycle()?;
         //println!("{:?}", self.opcode);

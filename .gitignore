@@ -1,2 +1,5 @@
 /target
 /games
+
+/www/node_modules
+/www/dist

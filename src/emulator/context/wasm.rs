@@ -1,4 +1,6 @@
 //! This module builds the containing webpage and mounts the machine to a canvas element.
+use std::unimplemented;
+
 use super::*;
 use crate::ROMS;
 use console_error_panic_hook::set_once;
@@ -255,22 +257,14 @@ impl Context for WasmContext {
     fn random_byte(&self) -> u8 {
         floor(random() * floor(255.0)) as u8
     }
-    fn sleep(&self, millis: u64) {
-        // TODO this is hacky, maybe try to actually use the Promise from setTimeout()
-        // It also just straight-up don't work
-        use js_sys::Date;
-        let date = Date::now();
-        let mut current_date = date;
-
-        while current_date - date < millis as f64 {
-            current_date = Date::now();
-        }
+    fn sleep(&self, _millis: u64) {
+        // Unused for WASM, we use setInterval instead
+        unimplemented!()
     }
 }
 
 /// Mount the DOM necessary to host the app
-#[wasm_bindgen]
-pub fn mount() {
+fn mount() {
     set_once(); // console_error_panic_hook
     let document = get_document().unwrap();
     let body = document.body().unwrap();
@@ -280,24 +274,25 @@ pub fn mount() {
 
 #[wasm_bindgen]
 pub fn run() {
-    // TODO we need to store page sate somewhere.  GOtta be able to talk to the machine better.
+    mount();
+
+    // TODO we need to store page sate somewhere.  Gotta be able to talk to the machine better.
     let context = WasmContext::new();
     let mut machine = Machine::new(context);
     // TODO get from DOM select element
-    machine
-        .load_game("maze")
-        .expect("Could not load rom");
+    machine.load_game("maze").expect("Could not load rom");
 
     let callback = Closure::wrap(Box::new(move || {
         if let Err(e) = machine.step() {
             error!("Error: {}", e);
         }
     }) as Box<dyn FnMut()>);
-
-    web_sys::window().unwrap().set_interval_with_callback_and_timeout_and_arguments_0(
-        callback.as_ref().unchecked_ref(),
-        1
-    ).unwrap();
-
+    web_sys::window()
+        .unwrap()
+        .set_interval_with_callback_and_timeout_and_arguments_0(
+            callback.as_ref().unchecked_ref(),
+            4, // DOM_MIN_TIMEOUT_VALUE
+        )
+        .unwrap();
     callback.forget();
 }
