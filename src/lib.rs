@@ -8,3 +8,6 @@ pub use roms::ROMS;
 
 #[cfg(feature = "sdl")]
 pub use emulator::SdlContext;
+
+#[cfg(feature = "wasm")]
+pub use emulator::wasm::{mount, run};

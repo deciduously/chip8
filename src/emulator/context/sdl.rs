@@ -82,34 +82,36 @@ impl SdlContext {
     }
 }
 
+// This is literally the example from https://docs.rs/sdl2/0.34.3/sdl2/audio/index.html
+// Used for the system beep
+struct SquareWave {
+    phase_inc: f32,
+    phase: f32,
+    volume: f32,
+}
+
+impl AudioCallback for SquareWave {
+    type Channel = f32;
+
+    fn callback(&mut self, out: &mut [f32]) {
+        // Generate a square wave
+        for x in out.iter_mut() {
+            *x = if self.phase <= 0.5 {
+                self.volume
+            } else {
+                -self.volume
+            };
+            self.phase = (self.phase + self.phase_inc) % 1.0;
+        }
+    }
+}
+
 impl Context for SdlContext {
     fn init(&mut self) {
         self.canvas.clear();
         self.canvas.present();
     }
     fn beep(&self) {
-        // This is literally the example from https://docs.rs/sdl2/0.34.3/sdl2/audio/index.html
-        struct SquareWave {
-            phase_inc: f32,
-            phase: f32,
-            volume: f32,
-        }
-
-        impl AudioCallback for SquareWave {
-            type Channel = f32;
-
-            fn callback(&mut self, out: &mut [f32]) {
-                // Generate a square wave
-                for x in out.iter_mut() {
-                    *x = if self.phase <= 0.5 {
-                        self.volume
-                    } else {
-                        -self.volume
-                    };
-                    self.phase = (self.phase + self.phase_inc) % 1.0;
-                }
-            }
-        }
         let desired_spec = AudioSpecDesired {
             freq: Some(44100),
             channels: Some(1),
@@ -124,7 +126,7 @@ impl Context for SdlContext {
             })
             .unwrap();
         device.resume();
-        std::thread::sleep(Duration::from_millis(25));
+        self.sleep(25);
     }
     fn listen_for_input(&mut self) -> bool {
         for event in self.event_pump.poll_iter() {
@@ -179,5 +181,9 @@ impl Context for SdlContext {
 
     fn random_byte(&self) -> u8 {
         rand::random::<u8>()
+    }
+
+    fn sleep(&self, millis: u64) {
+        std::thread::sleep(Duration::from_millis(millis));
     }
 }

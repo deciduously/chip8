@@ -2,7 +2,6 @@
 
 use super::{super::ROMS, opcode::*, *};
 use anyhow::{anyhow, Result};
-use std::time::Duration;
 
 #[cfg(test)]
 use std::convert::TryFrom;
@@ -159,6 +158,7 @@ impl Machine {
         };
         // The fonts are the same for every game, we can just load once here.
         ret.load_fontset();
+        ret.context.init();
         ret
     }
 
@@ -181,31 +181,39 @@ impl Machine {
         }
     }
 
-    /// Run the self.
-    pub fn run(&mut self) -> Result<()> {
-        self.context.init();
+    /// Run the machine.
+    pub fn run(&mut self) {
         loop {
-            // Handle any events, quit if signaled
-            if self.context.listen_for_input() {
-                println!("Quitting...");
-                break;
+            match self.step() {
+                Ok(true) => break,
+                Ok(_) => continue,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
             }
-            std::thread::sleep(Duration::from_micros(1000));
-            //dbg!(self.keys_pressed_str());
-
-            self.cycle()?;
-            //println!("{:?}", self.opcode);
-
-            // If the draw flag is set, update the screen
-            if self.draw_flag {
-                self.context.draw_graphics(self.screen);
-                //self.debug_render();
-                self.draw_flag = false;
-            }
-            // Store key press state
-            self.set_keys(&self.context.get_key_state());
         }
-        Ok(())
+    }
+
+    /// Perform one step
+    pub fn step(&mut self) -> Result<bool> {
+        // Handle any events, quit if signaled
+        if self.context.listen_for_input() {
+            println!("Quitting...");
+            return Ok(true);
+        }
+        self.context.sleep(2);
+        //dbg!(self.keys_pressed_str());
+        self.cycle()?;
+        //println!("{:?}", self.opcode);
+        // If the draw flag is set, update the screen
+        if self.draw_flag {
+            self.context.draw_graphics(self.screen);
+            self.draw_flag = false;
+        }
+        // Store key press state
+        self.set_keys(&self.context.get_key_state());
+        Ok(false)
     }
 
     // PRIVATE/INTERNAL INTERFACE
@@ -249,22 +257,6 @@ impl Machine {
         // Decrement timers if needed
         self.update_timers();
         Ok(())
-    }
-
-    /// Render a string for the console
-    #[allow(dead_code)]
-    fn debug_render(&self) {
-        for y in 0..PIXEL_ROWS {
-            for x in 0..PIXEL_COLS {
-                if self.screen[((y * PIXEL_COLS) + x) as usize] == 0 {
-                    print!("0");
-                } else {
-                    print!(" ");
-                }
-            }
-            println!();
-        }
-        println!();
     }
 
     /// Execute the current opcode
