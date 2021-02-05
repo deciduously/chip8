@@ -1,4 +1,4 @@
-.PHONY: deploy native wasm wasmdeps npmdeps deps dev help
+.PHONY: clean site deploy native wasm wasmdeps npmdeps deps dev help
 
 SHELL        = /bin/bash
 export PATH := bin:$(PATH)
@@ -7,7 +7,7 @@ native:
 	cargo run --features="sdl"
 
 npmdeps:
-	cd www && \
+	cd www      && \
 	npm install
 
 wasmdeps:
@@ -15,19 +15,24 @@ wasmdeps:
 
 deps: npmdeps wasmdeps
 
+clean:
+	rm -rf docs             && \
+	rm -rf www/dist
+
 dev: wasm
-	cd www && \
+	cd www        && \
 	npm run start
 
-deploy: deps wasm
-	cd www              && \
-	npm run build       && \
-	cd ..               && \
+deploy: clean site
 	rm -rf docs         && \
 	cp -r www/dist docs
 
 wasm:
 	wasm-pack build --release -- --features="wasm"
 
+site: wasm
+	cd www                             && \
+	NODE_ENV=production npm run build
+
 help:
-    @echo "Usage: make {deploy|deps|native|help|wasm}" 1>&2 && false
+    @echo "Usage: make {clean|site|deploy|deps|native|help|wasm}" 1>&2 && false
