@@ -5,6 +5,7 @@ use super::*;
 use crate::ROMS;
 use console_error_panic_hook::set_once;
 use js_sys::Math::{floor, random};
+use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{Document, Element, HtmlElement};
@@ -19,6 +20,14 @@ const INSTRUCTIONS: &str = "Select your preferred game, and use the keys as show
 |4|5|6|D| => |Q|W|E|R|
 |7|8|9|E| => |A|S|D|F|
 |A|0|B|F| => |Z|X|C|V|";
+
+// Module-specific static storage for key state
+
+lazy_static! {
+    static ref KEYS: Keys = Keys::new();
+}
+
+// Logging/error convenience macros for println!-=seque usage
 
 macro_rules! log {
     ( $( $t:tt )* ) => {
@@ -77,7 +86,6 @@ macro_rules! append_text_element_attrs {
 
 /// Listen for game change events
 fn attach_game_listener(document: &Document) -> Result<()> {
-
     update_all()?; // call once for initial render before any changes
 
     let callback = Closure::wrap(Box::new(move |_evt: web_sys::Event| {
@@ -95,16 +103,13 @@ fn attach_game_listener(document: &Document) -> Result<()> {
     Ok(())
 }
 
-
 /// Keydown event listener
 fn attach_keydown_listener(document: &Document) -> Result<()> {
     let callback = Closure::wrap(Box::new(move |evt: web_sys::Event| {
         let evt = evt.dyn_into::<web_sys::KeyboardEvent>().unwrap();
         let c = std::char::from_u32(evt.key_code()).unwrap();
         if let Ok(ch) = keyboard_to_keypad(c) {
-            log!("{} => {}", c, ch);
-            // TODO where does this go??
-            //context.key_state[ch as usize] = true;
+            KEYS.key_down(ch);
         }
     }) as Box<dyn FnMut(_)>);
 
@@ -115,7 +120,6 @@ fn attach_keydown_listener(document: &Document) -> Result<()> {
 }
 
 // TODO keyup!
-
 
 fn mount_app(document: &Document, body: &HtmlElement) -> Result<()> {
     append_text_element_attrs!(document, body, "h1", "CHIP-8",);
@@ -229,15 +233,11 @@ fn debug_render(screen: Screen) {
 
 /// The WebAssembly interface
 #[derive(Debug)]
-pub struct WasmContext {
-    key_state: Keys,
-}
+pub struct WasmContext;
 
 impl WasmContext {
     pub fn new() -> Box<Self> {
-        Box::new(Self {
-            key_state: FRESH_KEYS,
-        })
+        Box::new(Self {})
     }
 }
 
@@ -267,6 +267,7 @@ impl Context for WasmContext {
     }
     fn beep(&self) {}
     fn listen_for_input(&mut self) -> bool {
+        // TODO listen for quit??
         false
     }
     fn draw_graphics(&mut self, screen: Screen) {
@@ -274,7 +275,7 @@ impl Context for WasmContext {
         update_canvas(&get_document().unwrap(), screen).unwrap();
     }
     fn get_key_state(&self) -> Keys {
-        self.key_state
+        KEYS.clone()
     }
     fn random_byte(&self) -> u8 {
         floor(random() * floor(255.0)) as u8
@@ -303,9 +304,11 @@ pub fn run() {
     let context = WasmContext::new();
 
     let mut machine = Machine::new(context);
-    
+
     // TODO get from DOM select element
-    machine.load_game("test_opcode").expect("Could not load rom");
+    machine
+        .load_game("vbrix")
+        .expect("Could not load rom");
 
     let callback = Closure::wrap(Box::new(move || {
         if let Err(e) = machine.step() {

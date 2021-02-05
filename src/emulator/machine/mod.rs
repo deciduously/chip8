@@ -2,6 +2,10 @@
 
 use super::{super::ROMS, opcode::*, *};
 use anyhow::{anyhow, Result};
+use std::{
+    fmt,
+    sync::{Arc, RwLock},
+};
 
 #[cfg(test)]
 use std::convert::TryFrom;
@@ -35,9 +39,62 @@ pub const BLANK_SCREEN: Screen = [0; TOTAL_PIXELS as usize];
 
 // TODO constant accessor for Screen??
 
-/// The key state array
-pub type Keys = [bool; NUM_KEYS];
-pub const FRESH_KEYS: Keys = [false; NUM_KEYS];
+/// The key state array.
+/// This has to use thread-safe interior mutability to accommodate the Wasm event listener
+#[derive(Debug, Clone)]
+pub struct Keys {
+    state: Arc<RwLock<[bool; NUM_KEYS]>>,
+}
+
+impl Default for Keys {
+    fn default() -> Self {
+        Self {
+            state: Arc::new(RwLock::new([false; NUM_KEYS])),
+        }
+    }
+}
+
+impl Keys {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Depress a key
+    pub fn key_down(&self, key: u8) {
+        self.state.write().unwrap()[key as usize] = true;
+    }
+
+    /// Release a key
+    pub fn key_up(&self, key: u8) {
+        self.state.write().unwrap()[key as usize] = false;
+    }
+
+    /// Check if specific key is pressed
+    pub fn is_pressed(&self, key: u8) -> bool {
+        let key = key as usize;
+        if key >= NUM_KEYS {
+            false
+        } else {
+            self.state.read().unwrap()[key]
+        }
+    }
+}
+
+impl fmt::Display for Keys {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut ret = String::new();
+        for (idx, &key) in self.state.read().unwrap().iter().enumerate() {
+            if key {
+                ret.push_str(&format!("{:x} ", idx));
+            }
+        }
+        if !ret.is_empty() {
+            // Trim trailing space
+            ret = ret[0..ret.len() - 1].to_string();
+        }
+        write!(f, "{}", ret)
+    }
+}
 
 /// Helper to map a keyboard key to a hex key
 ///
@@ -154,7 +211,7 @@ impl Machine {
             sound_timer: 0xFF,
             stack: [0; STACK_SIZE],
             sp: 0,
-            key: FRESH_KEYS,
+            key: Keys::new(),
         };
         // The fonts are the same for every game, we can just load once here.
         ret.load_fontset();
@@ -460,7 +517,7 @@ impl Machine {
                 let mut key_press = None;
 
                 // check through keys
-                for (idx, pressed) in self.key.iter_mut().enumerate() {
+                for (idx, pressed) in self.key.state.write().unwrap().iter_mut().enumerate() {
                     if *pressed {
                         key_press = Some(idx as u8);
                         break;
@@ -537,23 +594,7 @@ impl Machine {
 
     /// Check if given key is pressed
     fn key_pressed(&self, key: u8) -> bool {
-        self.key[key as usize]
-    }
-
-    /// Get the keys pressed as a string, for debugging
-    #[allow(dead_code)]
-    fn keys_pressed_str(&self) -> String {
-        let mut ret = String::new();
-        for (idx, &key) in self.key.iter().enumerate() {
-            if key {
-                ret.push_str(&format!("{:x} ", idx));
-            }
-        }
-        if !ret.is_empty() {
-            // Trim trailing space
-            ret = ret[0..ret.len() - 1].to_string();
-        }
-        ret
+        self.key.is_pressed(key)
     }
 
     /// Initialization step to load the font bytes into main memory.
@@ -629,7 +670,7 @@ impl Machine {
 
     /// Store a newly read key state
     fn set_keys(&mut self, keys: &Keys) {
-        self.key = *keys;
+        self.key = keys.clone();
     }
 
     /// Update the opcode either with the passed value (for testing) or the current byte if None.
@@ -649,12 +690,6 @@ impl Machine {
             }
             self.sound_timer -= 1;
         }
-    }
-
-    /// Store a key press, for testing
-    #[cfg(test)]
-    fn press_key(&mut self, key: u8) {
-        self.key[key as usize] = true;
     }
 
     /// Set an opcode and immediate execute it, for testing purposes

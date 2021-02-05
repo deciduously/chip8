@@ -509,7 +509,7 @@ fn test_fx65_fill_registers() {
 fn test_ex9e_skip_if_pressed() {
     let mut machine = Machine::new(TestContext::new());
     machine.register_set(0xB, 0xC);
-    machine.press_key(0xC);
+    machine.key.key_down(0xC);
     machine.test_opcode(0xEB9E);
     // Should skip next instruction
     assert_eq!(machine.pc, PC_BEGIN + 4);
@@ -517,7 +517,7 @@ fn test_ex9e_skip_if_pressed() {
     // Should not skip if there is no press
     machine.reset();
     machine.register_set(0xB, 0xD);
-    machine.press_key(0xC);
+    machine.key.key_down(0xC);
     machine.test_opcode(0xEB9E);
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }
@@ -526,7 +526,7 @@ fn test_ex9e_skip_if_pressed() {
 fn test_exa1_skip_if_not_pressed() {
     let mut machine = Machine::new(TestContext::new());
     machine.register_set(0xB, 0xD);
-    machine.press_key(0xC);
+    machine.key.key_down(0xC);
     machine.test_opcode(0xEBA1);
     // Should skip next instruction
     assert_eq!(machine.pc, PC_BEGIN + 4);
@@ -534,7 +534,7 @@ fn test_exa1_skip_if_not_pressed() {
     // Should not skip if it is pressed
     machine.reset();
     machine.register_set(0xB, 0xC);
-    machine.press_key(0xC);
+    machine.key.key_down(0xC);
     machine.test_opcode(0xEBA1);
     assert_eq!(machine.pc, PC_BEGIN + 2);
 }
