@@ -97,10 +97,16 @@ fn attach_game_listener(document: &Document) -> Result<()> {
 
 
 /// Keydown event listener
-fn attach_keydown_listener(document: &Document, context: &WasmContext) -> Result<()> {
+fn attach_keydown_listener(document: &Document) -> Result<()> {
     let callback = Closure::wrap(Box::new(move |evt: web_sys::Event| {
         let evt = evt.dyn_into::<web_sys::KeyboardEvent>().unwrap();
-    }) as Box<dyn Fn(_)>);
+        let c = std::char::from_u32(evt.key_code()).unwrap();
+        if let Ok(ch) = keyboard_to_keypad(c) {
+            log!("{} => {}", c, ch);
+            // TODO where does this go??
+            //context.key_state[ch as usize] = true;
+        }
+    }) as Box<dyn FnMut(_)>);
 
     document.add_event_listener_with_callback("keydown", callback.as_ref().unchecked_ref())?;
 
@@ -264,7 +270,7 @@ impl Context for WasmContext {
         false
     }
     fn draw_graphics(&mut self, screen: Screen) {
-        debug_render(screen);
+        //debug_render(screen);
         update_canvas(&get_document().unwrap(), screen).unwrap();
     }
     fn get_key_state(&self) -> Keys {
@@ -286,6 +292,7 @@ fn mount() {
     let body = document.body().unwrap();
     mount_app(&document, &body).unwrap();
     attach_game_listener(&document).unwrap();
+    attach_keydown_listener(&document).unwrap();
 }
 
 #[wasm_bindgen]
@@ -295,7 +302,9 @@ pub fn run() {
 
     // TODO we need to store page sate somewhere.  Gotta be able to talk to the machine better.
     let context = WasmContext::new();
+
     let mut machine = Machine::new(context);
+    
     // TODO get from DOM select element
     machine.load_game("test_opcode").expect("Could not load rom");
 
