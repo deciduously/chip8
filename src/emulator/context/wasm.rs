@@ -296,7 +296,6 @@ fn mount() {
 }
 
 #[wasm_bindgen]
-#[no_mangle]
 pub fn run() {
     mount();
 
