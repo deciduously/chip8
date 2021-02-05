@@ -297,7 +297,7 @@ pub fn run() {
     let context = WasmContext::new();
     let mut machine = Machine::new(context);
     // TODO get from DOM select element
-    machine.load_game("maze").expect("Could not load rom");
+    machine.load_game("test_opcode").expect("Could not load rom");
 
     let callback = Closure::wrap(Box::new(move || {
         if let Err(e) = machine.step() {

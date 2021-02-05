@@ -1,4 +1,4 @@
-.PHONY: deploy native wasm wasmdeps npmdepshelp
+.PHONY: deploy native wasm wasmdeps npmdeps deps dev help
 
 SHELL        = /bin/bash
 export PATH := bin:$(PATH)
@@ -13,20 +13,21 @@ npmdeps:
 wasmdeps:
 	cargo install wasm-pack
 
-alldeps: npmdeps wasmdeps
+deps: npmdeps wasmdeps
 
 dev: wasm
 	cd www && \
 	npm run start
 
-deploy: wasm
-	rm -rf docs && \
+deploy: deps wasm
+	cd www              && \
+	npm run build       && \
+	cd ..               && \
+	rm -rf docs         && \
 	cp -r www/dist docs
 
 wasm:
-	wasm-pack build --release -- --features="wasm" && \
-	cd www                                         && \
-	npm run build
+	wasm-pack build --release -- --features="wasm"
 
 help:
-    @echo "Usage: make {deploy|native|help|wasm}" 1>&2 && false
+    @echo "Usage: make {deploy|deps|native|help|wasm}" 1>&2 && false
