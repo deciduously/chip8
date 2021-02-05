@@ -75,8 +75,8 @@ macro_rules! append_text_element_attrs {
 
 // Helpers to build the page
 
-fn attach_listener(document: &Document) -> Result<()> {
-    // listen for size change events
+/// Listen for game change events
+fn attach_game_listener(document: &Document) -> Result<()> {
 
     update_all()?; // call once for initial render before any changes
 
@@ -94,6 +94,22 @@ fn attach_listener(document: &Document) -> Result<()> {
 
     Ok(())
 }
+
+
+/// Keydown event listener
+fn attach_keydown_listener(document: &Document, context: &WasmContext) -> Result<()> {
+    let callback = Closure::wrap(Box::new(move |evt: web_sys::Event| {
+        let evt = evt.dyn_into::<web_sys::KeyboardEvent>().unwrap();
+    }) as Box<dyn Fn(_)>);
+
+    document.add_event_listener_with_callback("keydown", callback.as_ref().unchecked_ref())?;
+
+    callback.forget();
+    Ok(())
+}
+
+// TODO keyup!
+
 
 fn mount_app(document: &Document, body: &HtmlElement) -> Result<()> {
     append_text_element_attrs!(document, body, "h1", "CHIP-8",);
@@ -269,10 +285,11 @@ fn mount() {
     let document = get_document().unwrap();
     let body = document.body().unwrap();
     mount_app(&document, &body).unwrap();
-    attach_listener(&document).unwrap();
+    attach_game_listener(&document).unwrap();
 }
 
 #[wasm_bindgen]
+#[no_mangle]
 pub fn run() {
     mount();
 

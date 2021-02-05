@@ -1,10 +1,23 @@
-.PHONY: deploy native wasm help
+.PHONY: deploy native wasm wasmdeps npmdepshelp
 
 SHELL        = /bin/bash
 export PATH := bin:$(PATH)
 
 native:
 	cargo run --features="sdl"
+
+npmdeps:
+	cd www && \
+	npm install
+
+wasmdeps:
+	cargo install wasm-pack
+
+alldeps: npmdeps wasmdeps
+
+dev: wasm
+	cd www && \
+	npm run start
 
 deploy: wasm
 	rm -rf docs && \

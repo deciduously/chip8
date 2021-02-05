@@ -88,6 +88,24 @@
 /******/ 					"__wbg_getElementById_5bd6efc3d82494aa": function(p0i32,p1i32,p2i32) {
 /******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_getElementById_5bd6efc3d82494aa"](p0i32,p1i32,p2i32);
 /******/ 					},
+/******/ 					"__wbg_instanceof_HtmlCanvasElement_bd2459c62d076bcd": function(p0i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_instanceof_HtmlCanvasElement_bd2459c62d076bcd"](p0i32);
+/******/ 					},
+/******/ 					"__wbg_width_8225e9e48185d280": function(p0i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_width_8225e9e48185d280"](p0i32);
+/******/ 					},
+/******/ 					"__wbg_setwidth_80b60efe20240a3e": function(p0i32,p1i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_setwidth_80b60efe20240a3e"](p0i32,p1i32);
+/******/ 					},
+/******/ 					"__wbg_height_c55678b905b560e1": function(p0i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_height_c55678b905b560e1"](p0i32);
+/******/ 					},
+/******/ 					"__wbg_setheight_5c308278bb4139ed": function(p0i32,p1i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_setheight_5c308278bb4139ed"](p0i32,p1i32);
+/******/ 					},
+/******/ 					"__wbg_getContext_7f0328be9fe8c1ec": function(p0i32,p1i32,p2i32) {
+/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_getContext_7f0328be9fe8c1ec"](p0i32,p1i32,p2i32);
+/******/ 					},
 /******/ 					"__wbg_setvalue_4f8d5f6832ca131d": function(p0i32,p1i32,p2i32) {
 /******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_setvalue_4f8d5f6832ca131d"](p0i32,p1i32,p2i32);
 /******/ 					},
@@ -132,24 +150,6 @@
 /******/ 					},
 /******/ 					"__wbg_value_b431982196f2362c": function(p0i32,p1i32) {
 /******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_value_b431982196f2362c"](p0i32,p1i32);
-/******/ 					},
-/******/ 					"__wbg_instanceof_HtmlCanvasElement_bd2459c62d076bcd": function(p0i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_instanceof_HtmlCanvasElement_bd2459c62d076bcd"](p0i32);
-/******/ 					},
-/******/ 					"__wbg_width_8225e9e48185d280": function(p0i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_width_8225e9e48185d280"](p0i32);
-/******/ 					},
-/******/ 					"__wbg_setwidth_80b60efe20240a3e": function(p0i32,p1i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_setwidth_80b60efe20240a3e"](p0i32,p1i32);
-/******/ 					},
-/******/ 					"__wbg_height_c55678b905b560e1": function(p0i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_height_c55678b905b560e1"](p0i32);
-/******/ 					},
-/******/ 					"__wbg_setheight_5c308278bb4139ed": function(p0i32,p1i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_setheight_5c308278bb4139ed"](p0i32,p1i32);
-/******/ 					},
-/******/ 					"__wbg_getContext_7f0328be9fe8c1ec": function(p0i32,p1i32,p2i32) {
-/******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_getContext_7f0328be9fe8c1ec"](p0i32,p1i32,p2i32);
 /******/ 					},
 /******/ 					"__wbg_call_ab183a630df3a257": function(p0i32,p1i32) {
 /******/ 						return installedModules["../pkg/chip8_bg.js"].exports["__wbg_call_ab183a630df3a257"](p0i32,p1i32);
@@ -303,7 +303,7 @@
 /******/ 				promises.push(installedWasmModuleData);
 /******/ 			else {
 /******/ 				var importObject = wasmImportObjects[wasmModuleId]();
-/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/chip8_bg.wasm":"bec25d0558dacc4ac481"}[wasmModuleId] + ".module.wasm");
+/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/chip8_bg.wasm":"5e22f7da538cb3f5d12a"}[wasmModuleId] + ".module.wasm");
 /******/ 				var promise;
 /******/ 				if(importObject instanceof Promise && typeof WebAssembly.compileStreaming === 'function') {
 /******/ 					promise = Promise.all([WebAssembly.compileStreaming(req), importObject]).then(function(items) {
