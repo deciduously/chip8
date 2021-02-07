@@ -12,7 +12,7 @@ use js_sys::Math::{floor, random};
 use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{Document, Element, HtmlElement, Window};
+use web_sys::{CanvasRenderingContext2d, Document, Element, HtmlElement, Window};
 
 type Result<T> = std::result::Result<T, JsValue>;
 
@@ -197,25 +197,16 @@ fn update_all() -> Result<()> {
 }
 
 // draw screen
-fn update_canvas(document: &Document, screen: Screen) -> Result<()> {
-    // grab canvas
-    let canvas = document
-        .get_element_by_id("chip8-canvas")
-        .unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>()?;
-    let context = canvas
-        .get_context("2d")?
-        .unwrap()
-        .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
-
+fn update_canvas(
+    context: &CanvasRenderingContext2d,
+    width: f64,
+    height: f64,
+    screen: Screen,
+) -> Result<()> {
     // draw
 
-    let w = canvas.width().into();
-    let h = canvas.height().into();
-    context.clear_rect(0.0, 0.0, w, h);
-
     context.set_fill_style(&JsValue::from_str("black"));
-    context.fill_rect(0.0, 0.0, w, h);
+    context.fill_rect(0.0, 0.0, width, height);
 
     // For pixel in screen
     context.set_fill_style(&JsValue::from_str("white"));
@@ -266,11 +257,21 @@ fn debug_render(screen: Screen) {
 
 /// The WebAssembly interface
 #[derive(Debug)]
-pub struct WasmContext;
+pub struct WasmContext {
+    ctx: Option<CanvasRenderingContext2d>,
+    width: u32,
+    height: u32,
+    scale_factor: u32,
+}
 
 impl WasmContext {
-    pub fn new() -> Box<Self> {
-        Box::new(Self {})
+    pub fn new(scale_factor: u32) -> Box<Self> {
+        Box::new(Self {
+            ctx: None,
+            width: PIXEL_COLS * scale_factor,
+            height: PIXEL_ROWS * scale_factor,
+            scale_factor,
+        })
     }
 }
 
@@ -286,10 +287,9 @@ impl Context for WasmContext {
             .unwrap()
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .unwrap();
-        // TODO slider for scale factor, a la wasm-dot?
-        let scale_factor = 15;
-        canvas.set_width(PIXEL_COLS * scale_factor);
-        canvas.set_height(PIXEL_ROWS * scale_factor);
+        canvas.set_width(self.width);
+        canvas.set_height(self.height);
+        // TODO pass attribute to disable alpha - performance?
         let context = canvas
             .get_context("2d")
             .unwrap()
@@ -297,8 +297,9 @@ impl Context for WasmContext {
             .dyn_into::<web_sys::CanvasRenderingContext2d>()
             .unwrap();
         context
-            .scale(scale_factor as f64, scale_factor as f64)
+            .scale(self.scale_factor as f64, self.scale_factor as f64)
             .unwrap();
+        self.ctx = Some(context);
         log!("Finished init");
     }
     fn beep(&self) {}
@@ -308,10 +309,16 @@ impl Context for WasmContext {
     }
     fn draw_graphics(&mut self, screen: Screen) {
         //debug_render(screen);
-        update_canvas(&get_document(), screen).unwrap();
+        update_canvas(
+            self.ctx.as_ref().unwrap(),
+            self.width as f64,
+            self.height as f64,
+            screen,
+        )
+        .unwrap();
     }
-    fn get_key_state(&self) -> Keys {
-        KEYS.clone()
+    fn get_key_state(&self) -> [bool; NUM_KEYS] {
+        KEYS.inner()
     }
     fn random_byte(&self) -> u8 {
         floor(random() * floor(255.0)) as u8
@@ -340,7 +347,7 @@ fn mount() {
 #[wasm_bindgen]
 pub fn run() {
     // Init context and machine
-    let context = WasmContext::new();
+    let context = WasmContext::new(15);
     let mut machine = Machine::new(context);
     let _ = machine.load_game(&*CURRENT_GAME.read().unwrap());
 

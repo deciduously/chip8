@@ -25,7 +25,7 @@ pub trait Context {
     /// Draw the current stored screen state out to the real screen
     fn draw_graphics(&mut self, screen: Screen);
     /// Retreive the current real-world key state
-    fn get_key_state(&self) -> Keys;
+    fn get_key_state(&self) -> [bool; NUM_KEYS];
     /// Get a random byte
     fn random_byte(&self) -> u8;
     /// Sleep for a number of milliseconds
@@ -55,8 +55,8 @@ mod test {
             false
         }
         fn draw_graphics(&mut self, _screen: Screen) {}
-        fn get_key_state(&self) -> Keys {
-            Keys::new() // unused
+        fn get_key_state(&self) -> [bool; NUM_KEYS] {
+            [false; NUM_KEYS]
         }
         fn random_byte(&self) -> u8 {
             0x0

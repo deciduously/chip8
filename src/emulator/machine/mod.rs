@@ -20,7 +20,7 @@ const MEM_SIZE: usize = 4096;
 /// Number of registers avaialable for short-term storage.
 const NUM_REGISTERS: usize = 16;
 /// Keypad size.
-const NUM_KEYS: usize = 16;
+pub const NUM_KEYS: usize = 16;
 /// Screen height.
 pub const PIXEL_ROWS: u32 = 32;
 /// Screen width.
@@ -77,6 +77,11 @@ impl Keys {
         } else {
             self.state.read().unwrap()[key]
         }
+    }
+
+    // Get the internal state
+    pub fn inner(&self) -> [bool; NUM_KEYS] {
+        *self.state.read().unwrap()
     }
 }
 
@@ -276,7 +281,7 @@ impl Machine {
             self.draw_flag = false;
         }
         // Store key press state
-        self.set_keys(&self.context.get_key_state());
+        self.set_keys(self.context.get_key_state());
         Ok(false)
     }
 
@@ -680,8 +685,8 @@ impl Machine {
     }
 
     /// Store a newly read key state
-    fn set_keys(&mut self, keys: &Keys) {
-        self.key = keys.clone();
+    fn set_keys(&mut self, keys: [bool; NUM_KEYS]) {
+        *self.key.state.write().unwrap() = keys;
     }
 
     /// Update the opcode either with the passed value (for testing) or the current byte if None.

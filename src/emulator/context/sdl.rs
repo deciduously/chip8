@@ -175,8 +175,8 @@ impl Context for SdlContext {
         self.canvas.present();
     }
 
-    fn get_key_state(&self) -> Keys {
-        self.key_state.clone()
+    fn get_key_state(&self) -> [bool; NUM_KEYS] {
+        self.key_state.inner()
     }
 
     fn random_byte(&self) -> u8 {
