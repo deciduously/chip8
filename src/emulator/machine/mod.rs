@@ -190,6 +190,8 @@ pub struct Machine {
     pub sp: usize,
     /// Keep track of the keypad - 0x0-0xF
     key: Keys,
+    /// The name of the currently loaded game
+    pub current_game: Option<String>,
 }
 
 impl Machine {
@@ -212,6 +214,7 @@ impl Machine {
             stack: [0; STACK_SIZE],
             sp: 0,
             key: Keys::new(),
+            current_game: None,
         };
         // The fonts are the same for every game, we can just load once here.
         ret.load_fontset();
@@ -226,6 +229,7 @@ impl Machine {
 
         // All the games live in the GAMES_DIR, have an uppercase name, and a .ch8 extension
         if let Some(rom) = ROMS.get(name) {
+            self.current_game = Some(name.to_string());
             // Load in memory starting at location 512 (0x200), which is where the pc pointer starts
             for (idx, &byte) in rom.iter().enumerate() {
                 self.memory_set(idx as u16 + self.pc, byte);
@@ -274,6 +278,11 @@ impl Machine {
         // Store key press state
         self.set_keys(&self.context.get_key_state());
         Ok(false)
+    }
+
+    // Pass through key_up and key_down
+    pub fn key_down(&mut self, key: u8) {
+        self.key.key_down(key);
     }
 
     // PRIVATE/INTERNAL INTERFACE
@@ -656,6 +665,8 @@ impl Machine {
         self.delay_timer = 0;
         self.sound_timer = 0;
         self.draw_flag = true;
+        self.screen = BLANK_SCREEN;
+        self.load_fontset();
     }
 
     /// Get the value at screen position (x, y)
