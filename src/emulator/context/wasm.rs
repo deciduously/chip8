@@ -1,13 +1,18 @@
 //! This module builds the containing webpage and mounts the machine to a canvas element.
-use std::unimplemented;
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, RwLock},
+};
 
 use super::*;
 use crate::ROMS;
 use console_error_panic_hook::set_once;
 use js_sys::Math::{floor, random};
+use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{Document, Element, HtmlElement};
+use web_sys::{Document, Element, HtmlElement, Window};
 
 type Result<T> = std::result::Result<T, JsValue>;
 
@@ -19,6 +24,15 @@ const INSTRUCTIONS: &str = "Select your preferred game, and use the keys as show
 |4|5|6|D| => |Q|W|E|R|
 |7|8|9|E| => |A|S|D|F|
 |A|0|B|F| => |Z|X|C|V|";
+
+// Module-specific static storage for key state
+
+lazy_static! {
+    static ref KEYS: Keys = Keys::new();
+    static ref CURRENT_GAME: Arc<RwLock<String>> = Arc::new(RwLock::new("test_opcode".to_string()));
+}
+
+// Logging/error convenience macros for println!-=seque usage
 
 macro_rules! log {
     ( $( $t:tt )* ) => {
@@ -77,7 +91,6 @@ macro_rules! append_text_element_attrs {
 
 /// Listen for game change events
 fn attach_game_listener(document: &Document) -> Result<()> {
-
     update_all()?; // call once for initial render before any changes
 
     let callback = Closure::wrap(Box::new(move |_evt: web_sys::Event| {
@@ -95,16 +108,13 @@ fn attach_game_listener(document: &Document) -> Result<()> {
     Ok(())
 }
 
-
 /// Keydown event listener
 fn attach_keydown_listener(document: &Document) -> Result<()> {
     let callback = Closure::wrap(Box::new(move |evt: web_sys::Event| {
         let evt = evt.dyn_into::<web_sys::KeyboardEvent>().unwrap();
         let c = std::char::from_u32(evt.key_code()).unwrap();
         if let Ok(ch) = keyboard_to_keypad(c) {
-            log!("{} => {}", c, ch);
-            // TODO where does this go??
-            //context.key_state[ch as usize] = true;
+            KEYS.key_down(ch);
         }
     }) as Box<dyn FnMut(_)>);
 
@@ -114,8 +124,21 @@ fn attach_keydown_listener(document: &Document) -> Result<()> {
     Ok(())
 }
 
-// TODO keyup!
+/// Keyup event listener
+fn attach_keyup_listener(document: &Document) -> Result<()> {
+    let callback = Closure::wrap(Box::new(move |evt: web_sys::Event| {
+        let evt = evt.dyn_into::<web_sys::KeyboardEvent>().unwrap();
+        let c = std::char::from_u32(evt.key_code()).unwrap();
+        if let Ok(ch) = keyboard_to_keypad(c) {
+            KEYS.key_up(ch);
+        }
+    }) as Box<dyn FnMut(_)>);
 
+    document.add_event_listener_with_callback("keyup", callback.as_ref().unchecked_ref())?;
+
+    callback.forget();
+    Ok(())
+}
 
 fn mount_app(document: &Document, body: &HtmlElement) -> Result<()> {
     append_text_element_attrs!(document, body, "h1", "CHIP-8",);
@@ -144,7 +167,12 @@ fn mount_controls(document: &Document, parent: &HtmlElement) -> Result<()> {
     append_text_element_attrs!(document, div, "label", "Game Loaded:", ("for", "game"));
     let select = create_element_attrs!(document, "select", ("id", "game"));
     for rom in ROMS.keys() {
-        append_text_element_attrs!(document, select, "option", rom, ("value", rom));
+        let selected = rom == &*CURRENT_GAME.read().unwrap();
+        let new_option =
+            web_sys::HtmlOptionElement::new_with_text_and_value_and_default_selected_and_selected(
+                rom, rom, selected, selected,
+            )?;
+        select.append_child(&new_option)?;
     }
     div.append_child(&select)?;
     // canvas
@@ -156,14 +184,15 @@ fn mount_controls(document: &Document, parent: &HtmlElement) -> Result<()> {
 // Whena new game is selected, pass it to the machine
 // this is the onChange handler
 fn update_all() -> Result<()> {
-    //// get new game
-    let document = get_document()?;
+    // get new game
+    let document = get_document();
     let new_game = document
         .get_element_by_id("game")
         .unwrap()
         .dyn_into::<web_sys::HtmlSelectElement>()?
         .value();
-    // TODO - tear down machine and build a new one, or load game?
+    // Load new game
+    *CURRENT_GAME.write().unwrap() = new_game.to_string();
     Ok(())
 }
 
@@ -183,34 +212,42 @@ fn update_canvas(document: &Document, screen: Screen) -> Result<()> {
 
     let w = canvas.width().into();
     let h = canvas.height().into();
-
     context.clear_rect(0.0, 0.0, w, h);
+
     context.set_fill_style(&JsValue::from_str("black"));
     context.fill_rect(0.0, 0.0, w, h);
 
-    context.begin_path();
     // For pixel in screen
-    // TODO this would be faster as imgdata
-    // https://rustwasm.github.io/wasm-bindgen/examples/julia.html
     context.set_fill_style(&JsValue::from_str("white"));
     for y in 0..PIXEL_ROWS {
         for x in 0..PIXEL_COLS {
-            // Draw a point if it exists scaled up from the source screen
+            // Draw a point if it exists
             if screen[(x + (y * PIXEL_COLS)) as usize] == 1 {
                 context.fill_rect(x as f64, y as f64, 1.0, 1.0);
             }
         }
     }
-    context.stroke();
     Ok(())
 }
 
-fn get_document() -> Result<Document> {
-    let window = web_sys::window().unwrap();
-    Ok(window.document().unwrap())
+fn window() -> Window {
+    web_sys::window().expect("no global `window` exists")
+}
+
+fn get_document() -> Document {
+    window()
+        .document()
+        .expect("Should have a document on the window")
+}
+
+fn request_animation_frame(f: &Closure<dyn FnMut()>) {
+    window()
+        .request_animation_frame(f.as_ref().unchecked_ref())
+        .expect("should register `requestAnimationFrame` OK");
 }
 
 /// Render a string for the console
+#[allow(dead_code)]
 fn debug_render(screen: Screen) {
     let mut ret = String::new();
     for y in 0..PIXEL_ROWS {
@@ -229,23 +266,22 @@ fn debug_render(screen: Screen) {
 
 /// The WebAssembly interface
 #[derive(Debug)]
-pub struct WasmContext {
-    key_state: Keys,
-}
+pub struct WasmContext;
 
 impl WasmContext {
     pub fn new() -> Box<Self> {
-        Box::new(Self {
-            key_state: FRESH_KEYS,
-        })
+        Box::new(Self {})
     }
 }
 
 impl Context for WasmContext {
     fn init(&mut self) {
+        // First, mount the DOM
+        mount();
+        let document = get_document();
+
         // grab canvas
-        let canvas = get_document()
-            .unwrap()
+        let canvas = document
             .get_element_by_id("chip8-canvas")
             .unwrap()
             .dyn_into::<web_sys::HtmlCanvasElement>()
@@ -267,57 +303,93 @@ impl Context for WasmContext {
     }
     fn beep(&self) {}
     fn listen_for_input(&mut self) -> bool {
+        // TODO listen for quit??
         false
     }
     fn draw_graphics(&mut self, screen: Screen) {
         //debug_render(screen);
-        update_canvas(&get_document().unwrap(), screen).unwrap();
+        update_canvas(&get_document(), screen).unwrap();
     }
     fn get_key_state(&self) -> Keys {
-        self.key_state
+        KEYS.clone()
     }
     fn random_byte(&self) -> u8 {
         floor(random() * floor(255.0)) as u8
     }
-    fn sleep(&self, _millis: u64) {
-        // Unused for WASM, we use setInterval instead
-        unimplemented!()
+    fn sleep(&self, millis: u64) {
+        // unused?
+        let start = js_sys::Date::now();
+        let mut current = start;
+        while current - start < millis as f64 {
+            current = js_sys::Date::now();
+        }
     }
 }
 
 /// Mount the DOM necessary to host the app
 fn mount() {
     set_once(); // console_error_panic_hook
-    let document = get_document().unwrap();
+    let document = get_document();
     let body = document.body().unwrap();
     mount_app(&document, &body).unwrap();
     attach_game_listener(&document).unwrap();
     attach_keydown_listener(&document).unwrap();
+    attach_keyup_listener(&document).unwrap();
 }
 
 #[wasm_bindgen]
 pub fn run() {
-    mount();
-
-    // TODO we need to store page sate somewhere.  Gotta be able to talk to the machine better.
+    // Init context and machine
     let context = WasmContext::new();
-
     let mut machine = Machine::new(context);
-    
-    // TODO get from DOM select element
-    machine.load_game("test_opcode").expect("Could not load rom");
+    let _ = machine.load_game(&*CURRENT_GAME.read().unwrap());
 
-    let callback = Closure::wrap(Box::new(move || {
-        if let Err(e) = machine.step() {
-            error!("Error: {}", e);
+    // see https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
+    // We need to use Rc to store the callback.  One copy will store the callback and kick it off,
+    // referencing the same callback through a different pointer
+
+    // Set up the Rc.  g is just a reference to f.
+    let f = Rc::new(RefCell::new(None));
+    let g = Rc::clone(&f);
+
+    // Store the callback in g (and consequently, f)
+    *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
+        // First, check if we need to load a new game
+        let selected_game = &*CURRENT_GAME.read().unwrap();
+        if let Some(name) = &machine.current_game {
+            if name != selected_game {
+                // New game selected!
+                // Load it
+                let _ = machine
+                    .load_game(&selected_game)
+                    .expect("Could not load new rom");
+            }
         }
-    }) as Box<dyn FnMut()>);
-    web_sys::window()
-        .unwrap()
-        .set_interval_with_callback_and_timeout_and_arguments_0(
-            callback.as_ref().unchecked_ref(),
-            4, // DOM_MIN_TIMEOUT_VALUE
-        )
-        .unwrap();
-    callback.forget();
+
+        //log!("{}", KEYS.to_string());
+
+        // Then, execute a cycle
+        match machine.step() {
+            Ok(true) => {
+                // Quit signal received
+                log!("Quit!");
+                // Drop the handle to the closure so it will get cleaned up after returning
+                let _ = f.borrow_mut().take();
+                return;
+            }
+            Err(e) => {
+                error!("Error: {}", e);
+
+                // Drop the handle to the closure so it will get cleaned up after returning
+                let _ = f.borrow_mut().take();
+                return;
+            }
+            _ => {}
+        }
+        // Schedule another redraw
+        request_animation_frame(f.borrow().as_ref().unwrap());
+    }) as Box<dyn FnMut()>));
+
+    // Kick off initial redraw
+    request_animation_frame(g.borrow().as_ref().unwrap());
 }

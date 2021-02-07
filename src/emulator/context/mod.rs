@@ -20,7 +20,7 @@ pub trait Context {
     fn init(&mut self);
     /// Produce a beep sound
     fn beep(&self);
-    /// CGaather iniput for the tick, return true if user requested a quit
+    /// Gather input for the tick, return true if user requested a quit
     fn listen_for_input(&mut self) -> bool;
     /// Draw the current stored screen state out to the real screen
     fn draw_graphics(&mut self, screen: Screen);
@@ -56,7 +56,7 @@ mod test {
         }
         fn draw_graphics(&mut self, _screen: Screen) {}
         fn get_key_state(&self) -> Keys {
-            FRESH_KEYS
+            Keys::new() // unused
         }
         fn random_byte(&self) -> u8 {
             0x0

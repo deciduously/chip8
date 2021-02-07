@@ -75,7 +75,7 @@ impl SdlContext {
             audio,
             canvas,
             event_pump,
-            key_state: FRESH_KEYS,
+            key_state: Keys::new(),
         };
 
         Box::new(ret)
@@ -137,13 +137,13 @@ impl Context for SdlContext {
                     ..
                 } => return true,
                 Event::KeyDown { keycode, .. } => {
-                    if let Some(key_pressed) = keycode_to_keypad(keycode) {
-                        self.key_state[key_pressed as usize] = true;
+                    if let Some(key) = keycode_to_keypad(keycode) {
+                        self.key_state.key_down(key);
                     }
                 }
                 Event::KeyUp { keycode, .. } => {
-                    if let Some(key_pressed) = keycode_to_keypad(keycode) {
-                        self.key_state[key_pressed as usize] = false;
+                    if let Some(key) = keycode_to_keypad(keycode) {
+                        self.key_state.key_up(key);
                     }
                 }
                 _ => {}
@@ -176,7 +176,7 @@ impl Context for SdlContext {
     }
 
     fn get_key_state(&self) -> Keys {
-        self.key_state
+        self.key_state.clone()
     }
 
     fn random_byte(&self) -> u8 {
