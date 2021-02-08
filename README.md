@@ -1,6 +1,6 @@
 # chip8
 
-Yet another Rust/WASM Chip8.  Targets SDL2 (working) and/or an HTML5 canvas via WebAssembly (partially working for now).
+Yet another Rust/WASM Chip8.  Targets SDL2 and/or an HTML5 canvas via WebAssembly.
 
 ## Usage
 
