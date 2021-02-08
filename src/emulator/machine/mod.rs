@@ -15,6 +15,8 @@ mod test;
 
 use context::Context;
 
+// TODO maybe use FixedBitSet for keys, screen, etc.
+
 /// Total memory available.
 const MEM_SIZE: usize = 4096;
 /// Number of registers avaialable for short-term storage.
@@ -247,7 +249,8 @@ impl Machine {
         }
     }
 
-    /// Run the machine.
+    /// Run the machine for non-wasm target.
+    #[cfg(not(feature = "wasm"))]
     pub fn run(&mut self) {
         loop {
             match self.step() {
@@ -261,7 +264,8 @@ impl Machine {
         }
     }
 
-    /// Perform one step
+    /// Perform one step for the non-wasm target
+    #[cfg(not(feature = "wasm"))]
     pub fn step(&mut self) -> Result<bool> {
         // Handle any events, quit if signaled
         if self.context.listen_for_input() {
@@ -269,25 +273,43 @@ impl Machine {
             return Ok(true);
         }
         // Only sleep if we're using native renderers.  WASM handles this on its own.
-        #[cfg(not(feature = "wasm"))]
         self.context.sleep(2);
 
-        //dbg!(self.keys_pressed_str());
         self.cycle()?;
-        //println!("{:?}", self.opcode);
+        
         // If the draw flag is set, update the screen
         if self.draw_flag {
-            self.context.draw_graphics(self.screen);
-            self.draw_flag = false;
+            self.draw_graphics();
         }
         // Store key press state
-        self.set_keys(self.context.get_key_state());
+        self.update_keys();
         Ok(false)
     }
 
     // Pass through key_up and key_down
     pub fn key_down(&mut self, key: u8) {
         self.key.key_down(key);
+    }
+
+    /// Emulate a single cycle of the Chip8 CPU.
+    pub fn cycle(&mut self) -> Result<()> {
+        // Grab the current opcode and copy it into this stack frame
+        self.update_opcode()?;
+        self.execute()?;
+        // Decrement timers if needed
+        self.update_timers();
+        Ok(())
+    }
+
+    /// Draw the internal graphics out to a real screen
+    pub fn draw_graphics(&mut self) {
+        self.context.draw_graphics(self.screen);
+        self.draw_flag = false;
+    }
+
+    /// Refresh the internal key state from the real keyboard
+    pub fn update_keys(&mut self) {
+        self.set_keys(self.context.get_key_state());
     }
 
     // PRIVATE/INTERNAL INTERFACE
@@ -321,16 +343,6 @@ impl Machine {
     /// Retrieve the current byte.
     fn current_byte(&self) -> u8 {
         self.memory_get(self.pc)
-    }
-
-    /// Emulate a single cycle of the Chip8 CPU.
-    fn cycle(&mut self) -> Result<()> {
-        // Grab the current opcode and copy it into this stack frame
-        self.update_opcode()?;
-        self.execute()?;
-        // Decrement timers if needed
-        self.update_timers();
-        Ok(())
     }
 
     /// Execute the current opcode

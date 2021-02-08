@@ -1,9 +1,5 @@
 //! This module builds the containing webpage and mounts the machine to a canvas element.
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, RwLock},
-};
+use std::{cell::RefCell, rc::Rc, sync::{Arc, RwLock}};
 
 use super::*;
 use crate::ROMS;
@@ -25,10 +21,10 @@ const INSTRUCTIONS: &str = "Select your preferred game, and use the keys as show
 |7|8|9|E| => |A|S|D|F|
 |A|0|B|F| => |Z|X|C|V|";
 
-// Module-specific static storage for key state
+// Module-specific static storage for key state and game selection
 
 lazy_static! {
-    static ref KEYS: Keys = Keys::new();
+    static ref KEYS: Keys = Keys::new(); // TODO I think the Arc should jus tbe here, dont make Machine worry about it
     static ref CURRENT_GAME: Arc<RwLock<String>> = Arc::new(RwLock::new("test_opcode".to_string()));
 }
 
@@ -40,11 +36,13 @@ macro_rules! log {
     }
 }
 
+/*
 macro_rules! error {
     ( $( $t:tt )* ) => {
         web_sys::console::error_1(&format!( $( $t )* ).into());
     }
 }
+*/
 
 // Helper macros for DOM manipulation
 macro_rules! append_attrs {
@@ -65,6 +63,7 @@ macro_rules! append_text_child {
 }
 
 macro_rules! create_element_attrs {
+
         ($document:ident, $type:expr, $( $attr:expr ),* ) => {{
             let el = $document.create_element($type)?;
             append_attrs!($document, el, $( $attr ),*);
@@ -359,9 +358,15 @@ pub fn run() {
     let f = Rc::new(RefCell::new(None));
     let g = Rc::clone(&f);
 
+    // Counters to force redraw after a certian number of identical frames, even if draw_flag isnt set
+    // Otherwise, completed programs will simply freeze the page.
+    let max_timeout = 20;
+    let mut current_timeout = 0;
+
     // Store the callback in g (and consequently, f)
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
         // First, check if we need to load a new game
+        // TODO should this go somewhere else?
         let selected_game = &*CURRENT_GAME.read().unwrap();
         if let Some(name) = &machine.current_game {
             if name != selected_game {
@@ -375,23 +380,26 @@ pub fn run() {
 
         //log!("{}", KEYS.to_string());
 
-        // Then, execute a cycle
-        match machine.step() {
-            Ok(true) => {
-                // Quit signal received
-                log!("Quit!");
-                // Drop the handle to the closure so it will get cleaned up after returning
-                let _ = f.borrow_mut().take();
-                return;
-            }
-            Err(e) => {
-                error!("Error: {}", e);
+        // Then, execute cycles until draw_flag gets set or a certain number of cycles have passed.
+        // This is basically machine::step() but in wasm callback form
 
-                // Drop the handle to the closure so it will get cleaned up after returning
-                let _ = f.borrow_mut().take();
-                return;
+        loop {
+            // TODO listen for a quit signal or something?
+
+            machine.cycle().unwrap();
+
+            machine.update_keys();
+
+            if machine.draw_flag {
+                machine.draw_graphics();
+                current_timeout = 0;
+                break;
             }
-            _ => {}
+            if current_timeout >= max_timeout {
+                current_timeout = 0;
+                break;
+            }
+            current_timeout += 1;
         }
         // Schedule another redraw
         request_animation_frame(f.borrow().as_ref().unwrap());
