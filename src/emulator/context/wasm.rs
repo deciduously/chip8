@@ -151,7 +151,8 @@ fn mount_app(document: &Document, body: &HtmlElement) -> Result<()> {
         body,
         "a",
         "source",
-        ("href", "https://github.com/deciduously/chip8")
+        ("href", "https://github.com/deciduously/chip8"),
+        ("target", "_blank")
     );
     Ok(())
 }
