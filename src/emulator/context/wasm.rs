@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc, sync::{Arc, RwLock}};
 use super::*;
 use crate::ROMS;
 use console_error_panic_hook::set_once;
-use js_sys::Math::{floor, random};
+use js_sys::{Math::{floor, random}};
 use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -12,7 +12,7 @@ use web_sys::{CanvasRenderingContext2d, Document, Element, HtmlElement, Window};
 
 type Result<T> = std::result::Result<T, JsValue>;
 
-const INSTRUCTIONS: &str = "Select your preferred game, and use the keys as shown:
+const INSTRUCTIONS: &str = "Select your preferred ROM, and use the keys as shown.  Use the 'G' key to restart the current ROM.
 
   CHIP8   =>  Keyboard
 
@@ -26,6 +26,7 @@ const INSTRUCTIONS: &str = "Select your preferred game, and use the keys as show
 lazy_static! {
     static ref KEYS: Keys = Keys::new(); // TODO I think the Arc should jus tbe here, dont make Machine worry about it
     static ref CURRENT_GAME: Arc<RwLock<String>> = Arc::new(RwLock::new("test_opcode".to_string()));
+    static ref TRIGGER_RESTART: Arc<RwLock<bool>> = Arc::new(RwLock::new(false));
 }
 
 // Logging/error convenience macros for println!-=seque usage
@@ -114,6 +115,9 @@ fn attach_keydown_listener(document: &Document) -> Result<()> {
         let c = std::char::from_u32(evt.key_code()).unwrap();
         if let Ok(ch) = keyboard_to_keypad(c) {
             KEYS.key_down(ch);
+        } else if c == 'G' {
+            // trigger restart
+            *TRIGGER_RESTART.write().unwrap() = true;
         }
     }) as Box<dyn FnMut(_)>);
 
@@ -180,18 +184,31 @@ fn mount_controls(document: &Document, parent: &HtmlElement) -> Result<()> {
     Ok(())
 }
 
+/// Used to defocus all elements when a new game is chosen.
+/// Otherwise player input will be received as a new selection
+fn blur_all() -> Result<()> {
+    let document = get_document();
+    let tmp = create_element_attrs!(document, "input",);
+    let body = document.body().expect("Should find body");
+    let tmp = tmp.dyn_into::<HtmlElement>()?;
+
+    body.append_child(&tmp)?;
+    tmp.focus()?;
+    body.remove_child(&tmp)?;
+    Ok(())
+}
+
 // Whena new game is selected, pass it to the machine
 // this is the onChange handler
 fn update_all() -> Result<()> {
     // get new game
     let document = get_document();
-    let new_game = document
+    let new_game_select = document
         .get_element_by_id("game")
         .unwrap()
-        .dyn_into::<web_sys::HtmlSelectElement>()?
-        .value();
+        .dyn_into::<web_sys::HtmlSelectElement>()?;
     // Load new game
-    *CURRENT_GAME.write().unwrap() = new_game.to_string();
+    *CURRENT_GAME.write().unwrap() = new_game_select.value().to_string();
     Ok(())
 }
 
@@ -348,7 +365,9 @@ pub fn run() {
     // Init context and machine
     let context = WasmContext::new(15);
     let mut machine = Machine::new(context);
-    let _ = machine.load_game(&*CURRENT_GAME.read().unwrap());
+    let default_game = &*CURRENT_GAME.read().unwrap();
+    let bytes = machine.load_game(default_game).unwrap();
+    log!("Loaded {}: {} bytes.", default_game, bytes);
 
     // see https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
     // We need to use Rc to store the callback.  One copy will store the callback and kick it off,
@@ -366,15 +385,17 @@ pub fn run() {
     // Store the callback in g (and consequently, f)
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
         // First, check if we need to load a new game
-        // TODO should this go somewhere else?
         let selected_game = &*CURRENT_GAME.read().unwrap();
         if let Some(name) = &machine.current_game {
-            if name != selected_game {
-                // New game selected!
-                // Load it
-                let _ = machine
+            // If the name in the global doesn't match the machine's loaded game OR there's a restart request
+            if name != selected_game || *TRIGGER_RESTART.read().unwrap() {
+                *TRIGGER_RESTART.write().unwrap() = false;
+                let bytes = machine
                     .load_game(&selected_game)
                     .expect("Could not load new rom");
+                log!("Loaded {}: {} bytes.", selected_game, bytes);
+                    // Defocus everything to clear way for keybaord input
+                    blur_all().unwrap();
             }
         }
 
