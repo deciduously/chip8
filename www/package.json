@@ -25,10 +25,17 @@
   },
   "homepage": "https://github.com/deciduously/chip8#readme",
   "dependencies": {
-    "chip8": "../pkg"
+    "autoprefixer": "^10.2.4",
+    "chip8": "../pkg",
+    "postcss": "^8.2.5",
+    "postcss-import": "^14.0.0"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^6.0.0",
+    "css-loader": "^5.0.2",
+    "postcss-loader": "^4.2.0",
+    "postcss-preset-env": "^6.7.0",
+    "style-loader": "^2.0.0",
     "webpack": "^4.0.0",
     "webpack-cli": "^4.5.0",
     "webpack-dev-server": "^3.11.2"

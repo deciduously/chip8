@@ -24,7 +24,6 @@ dev: wasm
 	npm run start
 
 deploy: clean site
-	rm -rf docs         && \
 	cp -r www/dist docs
 
 wasm:

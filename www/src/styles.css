@@ -1,0 +1,16 @@
+body {
+    background-color: bisque;
+}
+
+h1 {
+    text-align: center;
+}
+
+#chip8canvas {
+    display: flex;
+    justify-content: center;    
+}
+
+pre {
+    text-align: center;
+}

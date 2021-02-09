@@ -146,7 +146,6 @@ fn attach_keyup_listener(document: &Document) -> Result<()> {
 fn mount_app(document: &Document, body: &HtmlElement) -> Result<()> {
     append_text_element_attrs!(document, body, "h1", "CHIP-8",);
     mount_controls(&document, &body)?;
-    append_text_element_attrs!(document, body, "pre", INSTRUCTIONS,);
     append_text_element_attrs!(
         document,
         body,
@@ -165,9 +164,7 @@ fn mount_canvas(document: &Document, parent: &Element) -> Result<()> {
 }
 
 fn mount_controls(document: &Document, parent: &HtmlElement) -> Result<()> {
-    // containing div
-    let div = create_element_attrs!(document, "div", ("id", "chip8canvas"));
-    append_text_element_attrs!(document, div, "label", "Game Loaded:", ("for", "game"));
+    append_text_element_attrs!(document, parent, "label", "Game Loaded:", ("for", "game"));
     let select = create_element_attrs!(document, "select", ("id", "game"));
     for rom in ROMS.keys() {
         let selected = rom == &*CURRENT_GAME.read().unwrap();
@@ -177,10 +174,13 @@ fn mount_controls(document: &Document, parent: &HtmlElement) -> Result<()> {
             )?;
         select.append_child(&new_option)?;
     }
-    div.append_child(&select)?;
+    parent.append_child(&select)?;
+    
+    let div = create_element_attrs!(document, "div", ("id", "chip8canvas"));
     // canvas
     mount_canvas(&document, &div)?;
     parent.append_child(&div)?;
+    append_text_element_attrs!(document, parent, "pre", INSTRUCTIONS,);
     Ok(())
 }
 
@@ -382,6 +382,9 @@ pub fn run() {
     let max_timeout = 20;
     let mut current_timeout = 0;
 
+    // Counter to force sleep sometimes
+    let mut cycle_counter = 0;
+
     // Store the callback in g (and consequently, f)
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
         // First, check if we need to load a new game
@@ -421,6 +424,12 @@ pub fn run() {
                 break;
             }
             current_timeout += 1;
+
+            cycle_counter += 1;
+            if cycle_counter >= CYCLES_PER_SLEEP {
+                cycle_counter = 0;
+                machine.sleep(MILLIS_PER_SLEEP.floor() as u64);
+            }
         }
         // Schedule another redraw
         request_animation_frame(f.borrow().as_ref().unwrap());

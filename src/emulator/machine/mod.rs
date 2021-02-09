@@ -32,6 +32,11 @@ const STACK_SIZE: usize = 16;
 /// Starting memory location for the program to run - earlier cells are machine-reserved.
 const PC_BEGIN: u16 = 0x200;
 
+// Game speed constants
+pub const CYCLES_PER_SECOND: u64 = 500;
+pub const CYCLES_PER_SLEEP: u64 = 10;
+pub const MILLIS_PER_SLEEP: f64 = (CYCLES_PER_SLEEP as f64 / CYCLES_PER_SECOND as f64) * 1000.0;
+
 /// Helper const for the total number of screen pixels.
 const TOTAL_PIXELS: u32 = PIXEL_COLS * PIXEL_ROWS;
 
@@ -252,7 +257,13 @@ impl Machine {
     /// Run the machine for non-wasm target.
     #[cfg(not(feature = "wasm"))]
     pub fn run(&mut self) {
+        let mut cycle_counter = 0;
         loop {
+            cycle_counter += 1;
+            if cycle_counter >= CYCLES_PER_SLEEP {
+                cycle_counter = 0;
+                self.sleep(MILLIS_PER_SLEEP.floor() as u64);
+            }
             match self.step() {
                 Ok(true) => break,
                 Ok(_) => continue,
@@ -272,8 +283,6 @@ impl Machine {
             println!("Quitting...");
             return Ok(true);
         }
-        // Only sleep if we're using native renderers.  WASM handles this on its own.
-        self.context.sleep(2);
 
         self.cycle()?;
         
@@ -300,6 +309,11 @@ impl Machine {
         self.update_timers();
         Ok(())
     }
+
+    /// Sleep the machine
+    pub fn sleep(&mut self, millis: u64) {
+        self.context.sleep(millis)
+    } 
 
     /// Draw the internal graphics out to a real screen
     pub fn draw_graphics(&mut self) {
