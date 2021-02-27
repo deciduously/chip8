@@ -15,8 +15,7 @@ mod macros;
 mod wasm_context;
 
 use dom::*;
-pub use macros::*;
-pub use wasm_context::WasmContext;
+use wasm_context::WasmContext;
 
 pub type Result<T> = std::result::Result<T, JsValue>;
 

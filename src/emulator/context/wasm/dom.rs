@@ -1,9 +1,40 @@
 //! This module interacts with the DOM to build the page and set up the context.
 
 use super::*;
-use wasm_bindgen::JsCast;
-use web_sys::{CanvasRenderingContext2d, Document, Window};
 use console_error_panic_hook::set_once;
+use wasm_bindgen::JsCast;
+use web_sys::{CanvasRenderingContext2d, Document, Element, Window};
+
+/// Fake a "sleep" function in a hacky dumb way using the Date object.
+pub fn sleep(millis: u64) {
+    let start = js_sys::Date::now();
+    let mut current = start;
+    while current - start < millis as f64 {
+        current = js_sys::Date::now();
+    }
+}
+
+/// beep background
+pub fn beep() -> Result<()> {
+    let document = get_document();
+    let div = document
+        .body()
+        .unwrap()
+        .dyn_into::<Element>()?;
+    let class_list = div.class_list();
+    class_list.add_1("beep")?;
+
+    let remove = Closure::wrap(Box::new(move || {
+        class_list.remove_1("beep").unwrap();
+    }) as Box<dyn Fn()>);
+    window().set_timeout_with_callback_and_timeout_and_arguments_0(
+        remove.as_ref().unchecked_ref(),
+        300,
+    )?;
+    remove.forget();
+
+    Ok(())
+}
 
 /// Helper to grab the document object
 pub fn get_document() -> Document {
@@ -43,7 +74,6 @@ pub fn update_canvas(
     }
     Ok(())
 }
-
 
 // Helpers to build the page
 
@@ -100,8 +130,6 @@ fn attach_keyup_listener(document: &Document) -> Result<()> {
     callback.forget();
     Ok(())
 }
-
-
 
 // When a new game is selected, pass it to the machine
 // this is the onChange handler

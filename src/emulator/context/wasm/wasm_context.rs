@@ -50,9 +50,12 @@ impl Context for WasmContext {
         self.ctx = Some(context);
         log!("Finished init");
     }
-    fn beep(&self) {}
+    fn beep(&self) {
+        log!("BEEP");
+        beep().unwrap_or_else(|_| {});
+    }
     fn listen_for_input(&mut self) -> bool {
-        // TODO listen for quit??
+        // This is handled differently in wasm, there's no quit, just restart
         false
     }
     fn draw_graphics(&mut self, screen: Screen) {
@@ -72,11 +75,6 @@ impl Context for WasmContext {
         floor(random() * floor(255.0)) as u8
     }
     fn sleep(&self, millis: u64) {
-        // unused?
-        let start = js_sys::Date::now();
-        let mut current = start;
-        while current - start < millis as f64 {
-            current = js_sys::Date::now();
-        }
+        sleep(millis);
     }
 }
