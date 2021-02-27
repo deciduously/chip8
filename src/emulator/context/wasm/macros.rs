@@ -1,4 +1,3 @@
-
 // Logging/error convenience macros for println!-esque usage
 
 #[macro_export]
@@ -17,7 +16,7 @@ macro_rules! error {
 
 // Helper macros for DOM manipulation
 #[macro_export]
-macro_rules! append_attrs { 
+macro_rules! append_attrs {
         ($document:ident, $el:ident, $( $attr:expr ),* ) => {
             $(
                 let attr = $document.create_attribute($attr.0)?;

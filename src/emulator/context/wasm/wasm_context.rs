@@ -1,8 +1,8 @@
 //! This struct connects the machine to the wasm context.
 
-use js_sys::{Math::{floor, random}};
-use web_sys::CanvasRenderingContext2d;
 use super::*;
+use js_sys::Math::{floor, random};
+use web_sys::CanvasRenderingContext2d;
 /// The WebAssembly interface
 #[derive(Debug)]
 pub struct WasmContext {

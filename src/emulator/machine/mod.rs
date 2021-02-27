@@ -285,7 +285,7 @@ impl Machine {
         }
 
         self.cycle()?;
-        
+
         // If the draw flag is set, update the screen
         if self.draw_flag {
             self.draw_graphics();
@@ -304,7 +304,7 @@ impl Machine {
     pub fn cycle(&mut self) -> Result<()> {
         // Grab the current opcode and copy it into this stack frame
         self.update_opcode()?;
-        self.execute()?;
+        self.execute();
         // Decrement timers if needed
         self.update_timers();
         Ok(())
@@ -313,7 +313,7 @@ impl Machine {
     /// Sleep the machine
     pub fn sleep(&mut self, millis: u64) {
         self.context.sleep(millis)
-    } 
+    }
 
     /// Draw the internal graphics out to a real screen
     pub fn draw_graphics(&mut self) {
@@ -360,7 +360,7 @@ impl Machine {
     }
 
     /// Execute the current opcode
-    fn execute(&mut self) -> Result<()> {
+    fn execute(&mut self) {
         use Opcode::*;
         let code = self.opcode;
         match code {
@@ -569,7 +569,6 @@ impl Machine {
                     self.next_opcode();
                 } else {
                     // If we didn't find it, skip this cycle and try again
-                    return Ok(());
                 }
             }
             SetDelay(x) => {
@@ -621,7 +620,6 @@ impl Machine {
                 self.next_opcode();
             }
         }
-        Ok(())
     }
 
     /// Fetch the opcode specified by the program counter.
@@ -738,6 +736,6 @@ impl Machine {
     #[cfg(test)]
     pub fn test_opcode(&mut self, opcode: u16) {
         self.opcode = Opcode::try_from(opcode).unwrap();
-        self.execute().unwrap();
+        self.execute();
     }
 }

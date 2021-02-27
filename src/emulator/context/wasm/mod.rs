@@ -1,5 +1,9 @@
 //! This module builds the containing webpage and mounts the machine to a canvas element.
-use std::{cell::RefCell, rc::Rc, sync::{Arc, RwLock}};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, RwLock},
+};
 
 use super::*;
 use crate::ROMS;
@@ -87,7 +91,7 @@ fn mount_controls(document: &Document, parent: &HtmlElement) -> Result<()> {
         select.append_child(&new_option)?;
     }
     parent.append_child(&select)?;
-    
+
     let div = create_element_attrs!(document, "div", ("id", "chip8canvas"));
     // canvas
     mount_canvas(&document, &div)?;
@@ -147,8 +151,8 @@ pub fn run() {
                     .load_game(&selected_game)
                     .expect("Could not load new rom");
                 log!("Loaded {}: {} bytes.", selected_game, bytes);
-                    // Defocus everything to clear way for keyboard input
-                    blur_all().unwrap();
+                // Defocus everything to clear way for keyboard input
+                blur_all().unwrap();
             }
         }
 

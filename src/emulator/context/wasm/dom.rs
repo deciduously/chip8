@@ -17,10 +17,7 @@ pub fn sleep(millis: u64) {
 /// beep background
 pub fn beep() -> Result<()> {
     let document = get_document();
-    let div = document
-        .body()
-        .unwrap()
-        .dyn_into::<Element>()?;
+    let div = document.body().unwrap().dyn_into::<Element>()?;
     let class_list = div.class_list();
     class_list.add_1("beep")?;
 
