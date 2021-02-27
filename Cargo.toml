@@ -76,6 +76,7 @@ features = [
     "CanvasRenderingContext2d",
     "console",
     "Document",
+    "DomTokenList",
     "Element",
     "Event",
     "EventTarget",
